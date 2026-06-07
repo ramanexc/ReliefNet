@@ -6,9 +6,13 @@ class GeminiService {
   static const _apiKey = String.fromEnvironment('GOOGLE_API_KEY');
   static const _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models';
-  static const _model = 'gemini-3.1-flash-lite-preview';
+  static const _model = 'gemini-1.5-flash';
 
   static Future<String?> _callGemini(String prompt) async {
+    if (_apiKey.isEmpty) {
+      print('GEMINI ERROR: GOOGLE_API_KEY is not set. Use --dart-define=GOOGLE_API_KEY=your_key');
+      return "AI Assistant is not configured. Please contact support.";
+    }
     try {
       final response = await http
           .post(

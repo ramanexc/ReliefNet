@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:reliefnet/main-pages/apply_volunteer_page.dart';
 import 'package:reliefnet/main-pages/dashboard_page.dart';
@@ -21,6 +23,12 @@ Future<void> main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp();
+
+  // Initialize App Check
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+    appleProvider: AppleProvider.deviceCheck,
+  );
 
   // Create the provider instances
   final themeProvider = ThemeProvider();
@@ -70,13 +78,19 @@ class MyApp extends StatelessWidget {
       /// AUTH HANDLER
       home: const AuthWrapper(),
       builder: (context, child) {
-        return Scaffold(
-          body: Stack(
-            children: [
-              child!,
-              const MahiAiAssistant(),
-            ],
-          ),
+        return Stack(
+          children: [
+            ?child,
+            StreamBuilder<User?>(
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return const MahiAiAssistant();
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
         );
       },
     );

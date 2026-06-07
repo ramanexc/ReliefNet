@@ -299,7 +299,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: displayDocs.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final doc = displayDocs[index];
                     final data = doc.data() as Map<String, dynamic>;
@@ -564,7 +564,7 @@ class _ReportDetailSheet extends StatelessWidget {
             child: Image.network(
               'https://maps.googleapis.com/maps/api/staticmap?center=$lat,$lng&zoom=15&size=600x200&markers=color:red%7C$lat,$lng&key=YOUR_GOOGLE_MAPS_API_KEY',
               height: 180, width: double.infinity, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (_, _, _) => Container(
                 height: 180,
                 decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
                 child: Center(child: Text('Add API key to enable map preview', style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12))),

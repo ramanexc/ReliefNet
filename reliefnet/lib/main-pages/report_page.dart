@@ -256,7 +256,7 @@ class _ReportPageState extends State<ReportPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Theme.of(ctx).colorScheme.surfaceVariant.withOpacity(0.4),
+                  color: Theme.of(ctx).colorScheme.surfaceContainerHighest.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -378,7 +378,7 @@ class _ReportPageState extends State<ReportPage> {
             _FieldLabel(label: 'Issue Type', icon: Icons.category_outlined),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _issueType,
+              initialValue: _issueType,
               hint: Text('Select issue type', style: textTheme.bodySmall),
               decoration: const InputDecoration(prefixIcon: Icon(Icons.help_outline_rounded)),
               items: _issueTypes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
@@ -391,7 +391,7 @@ class _ReportPageState extends State<ReportPage> {
             _FieldLabel(label: 'Urgency Level', icon: Icons.priority_high_rounded),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _urgency,
+              initialValue: _urgency,
               hint: Text('Select urgency', style: textTheme.bodySmall),
               decoration: const InputDecoration(prefixIcon: Icon(Icons.flag_outlined)),
               items: _urgencyLevels.map((e) {
@@ -446,7 +446,7 @@ class _ReportPageState extends State<ReportPage> {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: _mediaFiles.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
                           itemBuilder: (_, i) {
                             final isVid = _isVideo(_mediaFiles[i]);
                             return Stack(

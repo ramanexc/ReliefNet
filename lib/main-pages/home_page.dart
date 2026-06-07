@@ -11,6 +11,7 @@ import 'package:reliefnet/components/app_bar.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:reliefnet/l10n/app_localizations.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -62,7 +63,6 @@ class _HomepageState extends State<Homepage> {
         if (doc.exists && mounted) {
           setState(() {
             _isVolunteer = doc.data()?['isVolunteer'] ?? false;
-            // Update the HomeContent within the list when status changes
             _pages[0] = HomeContent(
               isVolunteer: _isVolunteer,
               onNavigateToReport: () => setState(() => selectedindex = 1),
@@ -81,16 +81,6 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
-  final List<String> _pageTitles = [
-    'ReliefNet',
-    'Report Issue',
-    'Dashboard',
-    'My Tasks',
-    'Application status',
-    'Profile',
-    'Settings',
-  ];
-
   void _navigate(int index) {
     setState(() => selectedindex = index);
     if (Navigator.canPop(context)) {
@@ -98,74 +88,61 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
-  Future<void> _makeCall(String number) async {
-    final Uri uri = Uri(scheme: 'tel', path: number);
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        debugPrint('Could not launch dialer for $number');
-      }
-    } catch (e) {
-      debugPrint('Error: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context)!;
+
+    final List<String> pageTitles = [
+      l10n.app_title,
+      l10n.report_issue,
+      l10n.dashboard,
+      l10n.my_tasks,
+      l10n.application_status,
+      l10n.profile,
+      l10n.settings,
+    ];
 
     return Scaffold(
-      appBar: AppBarComponent(appBarText: _pageTitles[selectedindex]),
-
+      appBar: AppBarComponent(appBarText: pageTitles[selectedindex]),
       body: _pages[selectedindex],
-
       drawer: Drawer(
         width: 240,
         child: Column(
           children: [
-            /// 🔹 Header
             DrawerHeader(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Image.asset("assets/images/logo.png", height: 80),
                   const SizedBox(height: 10),
-                  Text("ReliefNet", style: textTheme.bodyLarge),
+                  Text(l10n.app_title, style: textTheme.bodyLarge),
                 ],
               ),
             ),
-
-            /// 🔹 Main Items
-            _buildTile(Icons.home_outlined, "Home", 0, textTheme),
-            _buildTile(Icons.report_outlined, "Report", 1, textTheme),
-
+            _buildTile(Icons.home_outlined, l10n.home, 0, textTheme),
+            _buildTile(Icons.report_outlined, l10n.report, 1, textTheme),
             if (_isVolunteer) ...[
-              _buildTile(Icons.dashboard_outlined, "Dashboard", 2, textTheme),
-              _buildTile(Icons.help_outline, "Volunteer", 3, textTheme),
+              _buildTile(Icons.dashboard_outlined, l10n.dashboard, 2, textTheme),
+              _buildTile(Icons.help_outline, l10n.volunteer, 3, textTheme),
             ] else
               ListTile(
                 leading: const Icon(Icons.volunteer_activism_outlined),
-                title: Text("Apply as Volunteer", style: textTheme.bodyMedium),
-                selected: selectedindex == 4, // Highlight when index is 4
-                onTap: () => _navigate(4), // Navigate to index 4
+                title: Text(l10n.apply_as_volunteer, style: textTheme.bodyMedium),
+                selected: selectedindex == 4,
+                onTap: () => _navigate(4),
               ),
-
-            /// 🔹 Secondary Items (Updated Indices)
-            _buildTile(Icons.person_outline, "Profile", 5, textTheme),
-            _buildTile(Icons.settings_outlined, "Settings", 6, textTheme),
+            _buildTile(Icons.person_outline, l10n.profile, 5, textTheme),
+            _buildTile(Icons.settings_outlined, l10n.settings, 6, textTheme),
             const Spacer(),
-
-            /// 🔹 Logout
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: Text(
-                "Logout",
+                l10n.logout,
                 style: textTheme.bodyMedium?.copyWith(color: Colors.red),
               ),
-              onTap: () => _showLogoutDialog(context, textTheme),
+              onTap: () => _showLogoutDialog(context, textTheme, l10n),
             ),
-
             const SizedBox(height: 20),
           ],
         ),
@@ -173,13 +150,7 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
-  /// 🔥 Reusable Tile (cleaner code)
-  Widget _buildTile(
-    IconData icon,
-    String title,
-    int index,
-    TextTheme textTheme,
-  ) {
+  Widget _buildTile(IconData icon, String title, int index, TextTheme textTheme) {
     return ListTile(
       leading: Icon(icon),
       title: Text(title, style: textTheme.bodyMedium),
@@ -188,20 +159,16 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
-  /// 🔥 Logout Dialog (clean + themed)
-  void _showLogoutDialog(BuildContext context, TextTheme textTheme) {
+  void _showLogoutDialog(BuildContext context, TextTheme textTheme, AppLocalizations l10n) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Logout", style: textTheme.bodyLarge),
-        content: Text(
-          "Are you sure you want to logout?",
-          style: textTheme.bodyMedium,
-        ),
+        title: Text(l10n.logout, style: textTheme.bodyLarge),
+        content: Text(l10n.logout_confirm, style: textTheme.bodyMedium),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancel", style: textTheme.bodySmall),
+            child: Text(l10n.cancel, style: textTheme.bodySmall),
           ),
           TextButton(
             onPressed: () async {
@@ -210,7 +177,7 @@ class _HomepageState extends State<Homepage> {
               await GoogleSignIn().signOut();
             },
             child: Text(
-              "Logout",
+              l10n.logout,
               style: textTheme.bodyMedium?.copyWith(color: Colors.red),
             ),
           ),
@@ -241,8 +208,9 @@ class HomeContent extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
 
-    Future<void> _makeCall(String number) async {
+    Future<void> makeCall(String number) async {
       final Uri uri = Uri(scheme: 'tel', path: number);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
@@ -254,19 +222,15 @@ class HomeContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          // ── Greeting Header ──────────────────────────────────────
           Text(
-            "Hello, ${user?.displayName?.split(' ').first ?? 'there'} 👋",
+            "${l10n.hello}, ${user?.displayName?.split(' ').first ?? 'there'} 👋",
             style: textTheme.bodyLarge,
           ),
           Text(
-            isVolunteer ? "You're an active volunteer." : "How can we help you today?",
+            isVolunteer ? l10n.active_volunteer : l10n.how_can_we_help,
             style: textTheme.bodyMedium,
           ),
           const SizedBox(height: 20),
-
-          // ── 1) Report an Issue Button ─────────────────────────────
           GestureDetector(
             onTap: onNavigateToReport,
             child: Container(
@@ -303,11 +267,11 @@ class HomeContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Report an Issue",
+                          l10n.report_issue,
                           style: textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          "Need help? Let us know immediately.",
+                          l10n.need_help_desc,
                           style: textTheme.bodySmall?.copyWith(color: Colors.white70),
                         ),
                       ],
@@ -319,49 +283,45 @@ class HomeContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-
-          // ── New: Emergency Quick Actions ──────────────────────────
-          const _SectionHeader(title: "Quick Emergency Actions", icon: Icons.bolt_rounded),
+          _SectionHeader(title: l10n.quick_emergency_actions, icon: Icons.bolt_rounded),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _EmergencyActionBtn(
                 icon: Icons.local_hospital_outlined,
-                label: "Hospitals",
+                label: l10n.hospitals,
                 color: Colors.green,
                 onTap: onNavigateToHospitals,
               ),
               _EmergencyActionBtn(
                 icon: Icons.local_police_outlined,
-                label: "Police",
+                label: l10n.police,
                 color: Colors.blue,
-                onTap: () => _makeCall('100'),
+                onTap: () => makeCall('100'),
               ),
               _EmergencyActionBtn(
                 icon: Icons.medical_services_outlined,
-                label: "Ambulance",
+                label: l10n.ambulance,
                 color: Colors.red,
-                onTap: () => _makeCall('102'),
+                onTap: () => makeCall('102'),
               ),
               _EmergencyActionBtn(
                 icon: Icons.local_fire_department_outlined,
-                label: "Fire",
+                label: l10n.fire_brigade,
                 color: Colors.orange,
-                onTap: () => _makeCall('101'),
+                onTap: () => makeCall('101'),
               ),
               _EmergencyActionBtn(
                 icon: Icons.sos_rounded,
-                label: "SOS",
+                label: l10n.sos,
                 color: Colors.red.shade900,
-                onTap: () => _makeCall('112'),
+                onTap: () => makeCall('112'),
               ),
             ],
           ),
           const SizedBox(height: 24),
-
-          // ── New: Safety Tips Carousel ─────────────────────────────
-          const _SectionHeader(title: "Safety & Preparedness", icon: Icons.security_rounded),
+          _SectionHeader(title: l10n.safety_preparedness, icon: Icons.security_rounded),
           const SizedBox(height: 12),
           SizedBox(
             height: 130,
@@ -390,8 +350,6 @@ class HomeContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-
-          // ── 2) Become a Volunteer Banner ──────────────────────────
           if (!isVolunteer)
             Container(
               width: double.infinity,
@@ -414,8 +372,8 @@ class HomeContent extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Make a Difference", style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                        Text("Join our team of volunteers today!", style: textTheme.bodySmall),
+                        Text(l10n.make_a_difference, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        Text(l10n.join_volunteer_desc, style: textTheme.bodySmall),
                       ],
                     ),
                   ),
@@ -428,20 +386,15 @@ class HomeContent extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const Text("Apply"),
+                    child: Text(l10n.apply),
                   ),
                 ],
               ),
             ),
-
           if (!isVolunteer) const SizedBox(height: 24),
-
-          // ── New: Community Impact ─────────────────────────────────
-          _ImpactSummaryCard(isDark: isDark),
+          _ImpactSummaryCard(isDark: isDark, l10n: l10n),
           const SizedBox(height: 24),
-
-          // ── 3) My Active Reports ──────────────────────────────────
-          _SectionHeader(title: "My Active Reports", icon: Icons.list_alt_rounded),
+          _SectionHeader(title: l10n.active_reports, icon: Icons.list_alt_rounded),
           const SizedBox(height: 10),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
@@ -456,12 +409,11 @@ class HomeContent extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const _EmptyState(
+                return _EmptyState(
                   icon: Icons.inbox_rounded,
-                  message: "No active reports. You're all caught up!",
+                  message: l10n.no_active_reports,
                 );
               }
-
               return ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -470,16 +422,14 @@ class HomeContent extends StatelessWidget {
                   final doc = snapshot.data!.docs[index];
                   final issue = doc['issueType'] ?? 'Unknown';
                   final status = doc['status'] ?? '';
-                  return _ActiveReportCard(issue: issue, status: status);
+                  return _ActiveReportCard(issue: issue, status: status, l10n: l10n);
                 },
               );
             },
           ),
           const SizedBox(height: 24),
-
-          // ── 4) Pending Tasks (volunteers only) ────────────────────
           if (isVolunteer) ...[
-            const _SectionHeader(title: "My Pending Tasks", icon: Icons.assignment_turned_in_outlined),
+            _SectionHeader(title: l10n.pending_tasks, icon: Icons.assignment_turned_in_outlined),
             const SizedBox(height: 10),
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -492,12 +442,11 @@ class HomeContent extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const _EmptyState(
+                  return _EmptyState(
                     icon: Icons.check_circle_outline_rounded,
-                    message: "No pending tasks. Great work!",
+                    message: l10n.no_pending_tasks,
                   );
                 }
-
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -518,7 +467,6 @@ class HomeContent extends StatelessWidget {
               },
             ),
           ],
-
           const SizedBox(height: 20),
         ],
       ),
@@ -526,7 +474,6 @@ class HomeContent extends StatelessWidget {
   }
 }
 
-// ── Shared Section Header ─────────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -547,7 +494,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Empty State ───────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
@@ -573,11 +519,11 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-// ── Active Report Card ────────────────────────────────────────────────────────
 class _ActiveReportCard extends StatelessWidget {
   final String issue;
   final String status;
-  const _ActiveReportCard({required this.issue, required this.status});
+  final AppLocalizations l10n;
+  const _ActiveReportCard({required this.issue, required this.status, required this.l10n});
 
   IconData _iconForType(String type) {
     switch (type.toLowerCase()) {
@@ -633,7 +579,7 @@ class _ActiveReportCard extends StatelessWidget {
         ),
         title: Text(issue, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
-          "Status: ${status.replaceAll('_', ' ')}",
+          "${l10n.status}: ${status.replaceAll('_', ' ')}",
           style: const TextStyle(fontSize: 12),
         ),
         trailing: Container(
@@ -652,7 +598,6 @@ class _ActiveReportCard extends StatelessWidget {
   }
 }
 
-// ── Emergency Action Button ──────────────────────────────────────────────────
 class _EmergencyActionBtn extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -689,7 +634,6 @@ class _EmergencyActionBtn extends StatelessWidget {
   }
 }
 
-// ── Safety Tip Card ──────────────────────────────────────────────────────────
 class _SafetyTipCard extends StatelessWidget {
   final String title;
   final String desc;
@@ -734,10 +678,10 @@ class _SafetyTipCard extends StatelessWidget {
   }
 }
 
-// ── Impact Summary Card ──────────────────────────────────────────────────────
 class _ImpactSummaryCard extends StatelessWidget {
   final bool isDark;
-  const _ImpactSummaryCard({required this.isDark});
+  final AppLocalizations l10n;
+  const _ImpactSummaryCard({required this.isDark, required this.l10n});
 
   @override
   Widget build(BuildContext context) {
@@ -754,17 +698,17 @@ class _ImpactSummaryCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text(
-            "Community Impact",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          Text(
+            l10n.community_impact,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _ImpactStat(label: "Resolved", value: "1.2k", color: Colors.green),
-              _ImpactStat(label: "Volunteers", value: "450+", color: Colors.blue),
-              _ImpactStat(label: "Active", value: "84", color: Colors.orange),
+              _ImpactStat(label: l10n.resolved, value: "1.2k", color: Colors.green),
+              _ImpactStat(label: l10n.volunteers, value: "450+", color: Colors.blue),
+              _ImpactStat(label: l10n.active, value: "84", color: Colors.orange),
             ],
           ),
         ],
@@ -790,7 +734,6 @@ class _ImpactStat extends StatelessWidget {
   }
 }
 
-// ── Pending Task Card (Volunteer) ─────────────────────────────────────────────
 class _PendingTaskCard extends StatelessWidget {
   final String issue;
   final String urgency;
@@ -845,7 +788,6 @@ class _PendingTaskCard extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: Row(
               children: [
-                // Icon Container
                 Container(
                   width: 52,
                   height: 52,
@@ -860,8 +802,6 @@ class _PendingTaskCard extends StatelessWidget {
                   child: Icon(Icons.assignment_late_rounded, color: uColor, size: 28),
                 ),
                 const SizedBox(width: 16),
-
-                // Text Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -944,4 +884,3 @@ class _UrgencyBadge extends StatelessWidget {
     );
   }
 }
-
