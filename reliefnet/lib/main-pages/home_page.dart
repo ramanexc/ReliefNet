@@ -227,7 +227,7 @@ class HomeContent extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    Future<void> _makeCall(String number) async {
+    Future<void> makeCall(String number) async {
       final Uri uri = Uri(scheme: 'tel', path: number);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
@@ -315,25 +315,25 @@ class HomeContent extends StatelessWidget {
                 icon: Icons.local_police_outlined,
                 label: "Police",
                 color: Colors.blue,
-                onTap: () => _makeCall('100'),
+                onTap: () => makeCall('100'),
               ),
               _EmergencyActionBtn(
                 icon: Icons.medical_services_outlined,
                 label: "Ambulance",
                 color: Colors.red,
-                onTap: () => _makeCall('102'),
+                onTap: () => makeCall('102'),
               ),
               _EmergencyActionBtn(
                 icon: Icons.local_fire_department_outlined,
                 label: "Fire",
                 color: Colors.orange,
-                onTap: () => _makeCall('101'),
+                onTap: () => makeCall('101'),
               ),
               _EmergencyActionBtn(
                 icon: Icons.sos_rounded,
                 label: "SOS",
                 color: Colors.red.shade900,
-                onTap: () => _makeCall('112'),
+                onTap: () => makeCall('112'),
               ),
             ],
           ),

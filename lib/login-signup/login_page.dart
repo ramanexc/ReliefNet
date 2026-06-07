@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:reliefnet/login-signup/signup_page.dart';
+import 'package:reliefnet/l10n/app_localizations.dart';
+import 'package:reliefnet/main-pages/report_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -25,9 +27,9 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  bool _validatePassword() {
+  bool _validatePassword(AppLocalizations l10n) {
     if (_passwordController.text.length < 8) {
-      _showError("Password must be at least 8 characters long.");
+      _showError("Password must be at least 8 characters long."); // Could localize this too if needed
       return false;
     }
     return true;
@@ -47,8 +49,8 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> _signIn() async {
-    if (!_validatePassword()) return;
+  Future<void> _signIn(AppLocalizations l10n) async {
+    if (!_validatePassword(l10n)) return;
     setState(() => _isLoading = true);
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -58,8 +60,9 @@ class _LoginPageState extends State<LoginPage> {
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         String msg = "An error occurred. Please try again.";
-        if (e.code == 'user-not-found') msg = "No user found for that email.";
-        else if (e.code == 'wrong-password' || e.code == 'invalid-credential') msg = "Wrong password provided.";
+        if (e.code == 'user-not-found') {
+          msg = "No user found for that email.";
+        } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') msg = "Wrong password provided.";
         else if (e.code == 'invalid-email') msg = "The email address is badly formatted.";
         _showError(msg);
       }
@@ -86,7 +89,6 @@ class _LoginPageState extends State<LoginPage> {
       final result = await FirebaseAuth.instance.signInWithCredential(credential);
       if (result.user == null) throw Exception("Firebase user is null");
 
-      // Fix 3: create Firestore doc for first-time Google users
       if (result.additionalUserInfo?.isNewUser == true) {
         final user = result.user!;
         final baseName = (user.displayName ?? 'user').toLowerCase().replaceAll(' ', '_');
@@ -111,7 +113,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // Fix 6: navigate to signup and handle the result
   Future<void> _goToSignup() async {
     final success = await Navigator.push<bool>(
       context,
@@ -127,6 +128,7 @@ class _LoginPageState extends State<LoginPage> {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: SafeArea(
@@ -134,8 +136,6 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-
-              // ── Hero ─────────────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.fromLTRB(24, 52, 24, 40),
                 decoration: BoxDecoration(
@@ -151,7 +151,7 @@ class _LoginPageState extends State<LoginPage> {
                     Image.asset("assets/images/logo.png", height: 56),
                     const SizedBox(height: 20),
                     Text(
-                      "Welcome Back",
+                      l10n.welcome_back,
                       style: textTheme.bodyLarge?.copyWith(
                         color: Colors.white,
                         fontSize: 28,
@@ -160,21 +160,19 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "Sign in to continue helping your community",
+                      l10n.sign_in_desc,
                       style: textTheme.bodyMedium?.copyWith(color: Colors.white70),
                     ),
                   ],
                 ),
               ),
 
-              // ── Form ─────────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
-                    Text("Email", style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(l10n.email, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _emailController,
@@ -187,7 +185,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 20),
 
-                    Text("Password", style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(l10n.password, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _passwordController,
@@ -204,7 +202,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Sign In Button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -212,28 +209,26 @@ class _LoginPageState extends State<LoginPage> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        onPressed: _isLoading ? null : _signIn,
+                        onPressed: _isLoading ? null : () => _signIn(l10n),
                         child: _isLoading
                             ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                            : const Text("Sign In", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            : Text(l10n.sign_in, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(height: 20),
 
-                    // OR Divider
                     Row(
                       children: [
                         const Expanded(child: Divider()),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text("OR", style: textTheme.bodySmall),
+                          child: Text(l10n.or, style: textTheme.bodySmall),
                         ),
                         const Expanded(child: Divider()),
                       ],
                     ),
                     const SizedBox(height: 20),
 
-                    // Google Button
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
@@ -247,28 +242,60 @@ class _LoginPageState extends State<LoginPage> {
                           children: [
                             Image.asset("assets/images/google.png", height: 20),
                             const SizedBox(width: 12),
-                            const Text("Continue with Google", style: TextStyle(fontWeight: FontWeight.w600)),
+                            Text(l10n.continue_with_google, style: const TextStyle(fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 28),
 
-                    // Sign Up Link
                     Center(
                       child: GestureDetector(
-                        onTap: _goToSignup, // Fix 6: use _goToSignup instead of inline push
+                        onTap: _goToSignup,
                         child: RichText(
                           text: TextSpan(
                             style: textTheme.bodyMedium,
                             children: [
-                              const TextSpan(text: "Don't have an account? "),
+                              TextSpan(text: l10n.dont_have_account),
                               TextSpan(
-                                text: "Sign Up",
+                                text: l10n.sign_up,
                                 style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+                    const Divider(),
+                    const SizedBox(height: 16),
+
+                    // Emergency Report Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Scaffold(
+                                appBar: AppBar(title: const Text("Emergency Report")),
+                                body: const ReportPage(),
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.emergency_share),
+                        label: const Text(
+                          "Emergency? Report Now",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),

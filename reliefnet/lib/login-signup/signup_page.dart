@@ -70,8 +70,9 @@ class _SignupPageState extends State<SignupPage> {
       }
     } on FirebaseAuthException catch (e) {
       String error = "Signup failed. Please try again.";
-      if (e.code == 'email-already-in-use') error = "An account with this email already exists.";
-      else if (e.code == 'weak-password') error = "Password is too weak. Use at least 8 characters.";
+      if (e.code == 'email-already-in-use') {
+        error = "An account with this email already exists.";
+      } else if (e.code == 'weak-password') error = "Password is too weak. Use at least 8 characters.";
       else if (e.code == 'invalid-email') error = "The email address is badly formatted.";
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

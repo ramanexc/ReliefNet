@@ -366,39 +366,43 @@ class _ActiveDetailPageState extends State<_ActiveDetailPage> {
                         source: ImageSource.camera,
                         imageQuality: 80,
                       );
-                      if (picked != null)
+                      if (picked != null) {
                         setSheet(() {
                           proofFile = File(picked.path);
                           isVideo = false;
                         });
+                      }
                     } else if (choice == 'photo_gallery') {
                       final picked = await picker.pickImage(
                         source: ImageSource.gallery,
                         imageQuality: 80,
                       );
-                      if (picked != null)
+                      if (picked != null) {
                         setSheet(() {
                           proofFile = File(picked.path);
                           isVideo = false;
                         });
+                      }
                     } else if (choice == 'video_camera') {
                       final picked = await picker.pickVideo(
                         source: ImageSource.camera,
                       );
-                      if (picked != null)
+                      if (picked != null) {
                         setSheet(() {
                           proofFile = File(picked.path);
                           isVideo = true;
                         });
+                      }
                     } else if (choice == 'video_gallery') {
                       final picked = await picker.pickVideo(
                         source: ImageSource.gallery,
                       );
-                      if (picked != null)
+                      if (picked != null) {
                         setSheet(() {
                           proofFile = File(picked.path);
                           isVideo = true;
                         });
+                      }
                     }
                   },
                   child: AnimatedContainer(
@@ -983,7 +987,7 @@ class _SubmitButtonState extends State<_SubmitButton> {
           .doc(widget.docId)
           .update({
             'status': 'completed',
-            if (proofUrl != null) 'proofMedia': proofUrl,
+            'proofMedia': ?proofUrl,
             if (widget.isVideo) 'proofIsVideo': true,
             'resolutionNote': widget.noteController.text.trim(),
             'resolvedAt': FieldValue.serverTimestamp(),
@@ -1359,7 +1363,7 @@ class _GraffitiOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
-      builder: (_, __) {
+      builder: (_, _) {
         if (controller.value > 0.85) return const SizedBox();
         return CustomPaint(
           size: Size.infinite,
@@ -1520,7 +1524,7 @@ class _CompletedHeroHeader extends StatelessWidget {
             top: 50,
             child: AnimatedBuilder(
               animation: controller,
-              builder: (_, __) {
+              builder: (_, _) {
                 final t = Curves.elasticOut.transform(
                   controller.value.clamp(0.0, 1.0),
                 );

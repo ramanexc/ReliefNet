@@ -14,6 +14,7 @@ import 'package:reliefnet/themes/theme_provider.dart';
 import 'package:reliefnet/themes/locale_provider.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
 import 'package:reliefnet/widgets/mahi_ai_assistant.dart';
+import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 
 Future<void> main() async {
   // Ensure native bindings are ready
@@ -21,6 +22,9 @@ Future<void> main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp();
+
+  // Initialize reCAPTCHA (Replace with your actual site key)
+  await GRecaptchaV3.ready("YOUR_RECAPTCHA_SITE_KEY");
 
   // Create the provider instances
   final themeProvider = ThemeProvider();
@@ -70,13 +74,19 @@ class MyApp extends StatelessWidget {
       /// AUTH HANDLER
       home: const AuthWrapper(),
       builder: (context, child) {
-        return Scaffold(
-          body: Stack(
-            children: [
-              child!,
-              const MahiAiAssistant(),
-            ],
-          ),
+        return Stack(
+          children: [
+            ?child,
+            StreamBuilder<User?>(
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return const MahiAiAssistant();
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
         );
       },
     );
