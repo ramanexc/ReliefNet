@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReliefNet Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ─── AUTH ─────────────────────────────────────────────── -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🛰️</div>
+      <div>
+        <span>ReliefNet</span>
+        <small>Admin Panel</small>
+      </div>
+    </div>
+    <h2>Welcome back</h2>
+    <p>Sign in with your admin account to continue</p>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="email-input" placeholder="admin@reliefnet.app">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="pass-input" placeholder="••••••••">
+    </div>
+    <button class="btn-primary" onclick="signIn()">Sign In</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ─── APP ──────────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛰️</div>
+      <div>
+        <div class="sidebar-logo-text">ReliefNet</div>
+        <div class="sidebar-logo-sub">Admin Panel</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" onclick="showPage('overview')">
+        <span class="nav-icon">📊</span> Overview
+      </div>
+      <div class="nav-item" onclick="showPage('reports')">
+        <span class="nav-icon">📋</span> Reports
+        <span class="nav-badge" id="reports-badge" style="display:none"></span>
+      </div>
+      <div class="nav-item" onclick="showPage('applications')">
+        <span class="nav-icon">🙋</span> Applications
+        <span class="nav-badge" id="apps-badge" style="display:none"></span>
+      </div>
+      <div class="nav-item" onclick="showPage('volunteers')">
+        <span class="nav-icon">👥</span> Volunteers
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="admin-info">
+        <div class="admin-avatar" id="admin-avatar">A</div>
+        <div class="admin-email" id="admin-email">—</div>
+      </div>
+      <button class="btn-logout" onclick="signOut()">Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div class="page active" id="page-overview">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Overview</div>
+          <div class="page-subtitle" id="overview-date">—</div>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Reports</div>
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-sub">All time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Reports</div>
+          <div class="stat-value" id="stat-active" style="color:var(--blue)">—</div>
+          <div class="stat-sub">Needs attention</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Resolved</div>
+          <div class="stat-value" id="stat-resolved" style="color:var(--green)">—</div>
+          <div class="stat-sub">Completed cases</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Pending Applications</div>
+          <div class="stat-value" id="stat-pending-apps" style="color:var(--orange)">—</div>
+          <div class="stat-sub">Awaiting review</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Recent Reports</div></div>
+          <table>
+            <thead><tr><th>Type</th><th>Urgency</th><th>Status</th><th>Time</th></tr></thead>
+            <tbody id="overview-reports-body">
+              <tr><td colspan="4" class="loading"><span class="spinner"></span>Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Reports by Category</div></div>
+          <div id="category-breakdown" style="padding:16px;">
+            <div class="loading"><span class="spinner"></span>Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="page" id="page-reports">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Reports</div>
+          <div class="page-subtitle">All submitted community reports</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Reports</div>
+          <div class="filter-row">
+            <button class="filter-btn active" onclick="filterReports('all', this)">All</button>
+            <button class="filter-btn" onclick="filterReports('High', this)">🔴 High</button>
+            <button class="filter-btn" onclick="filterReports('Medium', this)">🟠 Medium</button>
+            <button class="filter-btn" onclick="filterReports('Low', this)">🟢 Low</button>
+            <button class="filter-btn" onclick="filterReports('completed', this)">✅ Resolved</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Type</th><th>Description</th><th>Urgency</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead>
+          <tbody id="reports-body">
+            <tr><td colspan="6" class="loading"><span class="spinner"></span>Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- APPLICATIONS -->
+    <div class="page" id="page-applications">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Volunteer Applications</div>
+          <div class="page-subtitle">Review and approve volunteer requests</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Applications</div>
+          <div class="filter-row">
+            <button class="filter-btn active" onclick="filterApps('all', this)">All</button>
+            <button class="filter-btn" onclick="filterApps('pending', this)">⏳ Pending</button>
+            <button class="filter-btn" onclick="filterApps('approved', this)">✅ Approved</button>
+            <button class="filter-btn" onclick="filterApps('rejected', this)">❌ Rejected</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Email</th><th>Skills</th><th>Reason</th><th>Status</th><th>Applied</th><th>Action</th></tr></thead>
+          <tbody id="apps-body">
+            <tr><td colspan="6" class="loading"><span class="spinner"></span>Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- VOLUNTEERS -->
+    <div class="page" id="page-volunteers">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Volunteers</div>
+          <div class="page-subtitle">All verified volunteers</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Volunteer List</div></div>
+        <table>
+          <thead><tr><th>Name</th><th>Username</th><th>Volunteer ID</th><th>Joined</th></tr></thead>
+          <tbody id="volunteers-body">
+            <tr><td colspan="4" class="loading"><span class="spinner"></span>Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script type="module" src="js/firebase-init.js"></script>
+<script type="module" src="js/utils.js"></script>
+
+</body>
+</html>
