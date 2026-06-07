@@ -11,7 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:reliefnet/services/gemini_service.dart';
 import 'package:reliefnet/widgets/ai_summary_card.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
-import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
+import 'dart:math' as math;
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -28,10 +28,46 @@ class _ReportPageState extends State<ReportPage> {
   String _description = '';
   bool _isSubmitting = false;
   final _descController = TextEditingController();
+  final _mathAnswerController = TextEditingController();
+
+  int _num1 = 0;
+  int _num2 = 0;
+  String _mathOperation = '+';
+  int _correctMathResult = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (FirebaseAuth.instance.currentUser == null) {
+      _generateMathChallenge();
+    }
+  }
+
+  void _generateMathChallenge() {
+    final rand = math.Random();
+    _num1 = rand.nextInt(10) + 1; // 1-10
+    _num2 = rand.nextInt(10) + 1; // 1-10
+    // Randomly choose between + and -
+    if (rand.nextBool()) {
+      _mathOperation = '+';
+      _correctMathResult = _num1 + _num2;
+    } else {
+      _mathOperation = '-';
+      // Ensure result is positive for simplicity
+      if (_num1 < _num2) {
+        final temp = _num1;
+        _num1 = _num2;
+        _num2 = temp;
+      }
+      _correctMathResult = _num1 - _num2;
+    }
+    setState(() {});
+  }
 
   @override
   void dispose() {
     _descController.dispose();
+    _mathAnswerController.dispose();
     super.dispose();
   }
 
@@ -173,21 +209,20 @@ class _ReportPageState extends State<ReportPage> {
 
     final user = FirebaseAuth.instance.currentUser;
     
-    // reCAPTCHA for anonymous users
+    // Math Bot Check for anonymous users
     if (user == null) {
-      setState(() => _isSubmitting = true); // Show loader during captcha
-      final token = await GRecaptchaV3.execute('submit_report');
-      if (token == null || token.isEmpty) {
-        if (mounted) {
-          setState(() => _isSubmitting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('reCAPTCHA failed. Please try again.'), backgroundColor: Colors.red),
-          );
-        }
+      final userValue = int.tryParse(_mathAnswerController.text.trim());
+      if (userValue != _correctMathResult) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bot check failed: Incorrect math answer. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        _generateMathChallenge();
+        _mathAnswerController.clear();
         return;
       }
-      // Note: In a real production app, you should send this token to your 
-      // backend/Cloud Function to verify it with Google's API.
     }
 
     final submittedType = _issueType!;
@@ -242,6 +277,10 @@ class _ReportPageState extends State<ReportPage> {
           _longitude = null;
           _mediaFiles.clear();
           _liveAiSummary = null;
+          if (FirebaseAuth.instance.currentUser == null) {
+            _mathAnswerController.clear();
+            _generateMathChallenge();
+          }
         });
 
         _showConfirmation(
@@ -563,7 +602,63 @@ class _ReportPageState extends State<ReportPage> {
                 style: TextButton.styleFrom(foregroundColor: colorScheme.primary, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
+
+            if (FirebaseAuth.instance.currentUser == null) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colorScheme.primary.withOpacity(0.15)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.smart_toy_outlined, size: 20, color: colorScheme.primary),
+                        const SizedBox(width: 10),
+                        Text("Bot Verification", style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 14)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text("Please solve this simple math problem to verify you are a human:", style: textTheme.bodySmall),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text("$_num1 $_mathOperation $_num2 =", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _mathAnswerController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              hintText: "?",
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          onPressed: _generateMathChallenge,
+                          icon: const Icon(Icons.refresh_rounded, size: 20),
+                          tooltip: "New challenge",
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             SizedBox(
               width: double.infinity,

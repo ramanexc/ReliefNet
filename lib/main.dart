@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:reliefnet/main-pages/apply_volunteer_page.dart';
 import 'package:reliefnet/main-pages/dashboard_page.dart';
@@ -14,7 +16,6 @@ import 'package:reliefnet/themes/theme_provider.dart';
 import 'package:reliefnet/themes/locale_provider.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
 import 'package:reliefnet/widgets/mahi_ai_assistant.dart';
-import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 
 Future<void> main() async {
   // Ensure native bindings are ready
@@ -23,8 +24,11 @@ Future<void> main() async {
   // Initialize Firebase
   await Firebase.initializeApp();
 
-  // Initialize reCAPTCHA (Replace with your actual site key)
-  await GRecaptchaV3.ready("YOUR_RECAPTCHA_SITE_KEY");
+  // Initialize App Check
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+    appleProvider: AppleProvider.deviceCheck,
+  );
 
   // Create the provider instances
   final themeProvider = ThemeProvider();

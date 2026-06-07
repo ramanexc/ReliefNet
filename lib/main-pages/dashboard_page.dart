@@ -20,7 +20,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   String _selectedFilter = 'All';
-  final String _selectedSort = 'Nearest';
+  String _selectedSort = 'Nearest';
   Position? _userPosition;
   bool _fetchingLocation = false;
   Map<String, dynamic>? _userProfile;
@@ -145,22 +145,36 @@ class _DashboardPageState extends State<DashboardPage> {
 
   List<QueryDocumentSnapshot> _applyFilterAndSort(List<QueryDocumentSnapshot> docs) {
     List<QueryDocumentSnapshot> filtered = _selectedFilter == 'All' ? docs : docs.where((d) => d['urgency'] == _selectedFilter).toList();
-    final sorted = List<QueryDocumentSnapshot>.from(filtered);
-    if (_selectedSort == 'Completed Only') return sorted.where((d) => d['status'] == 'completed').toList();
-    if (_selectedSort == 'Unassigned Only') return sorted.where((d) => d['status'] == 'unassigned').toList();
+    
+    // Split into three distinct groups
+    final unassignedDocs = filtered.where((d) => d['status'] == 'unassigned').toList();
+    final assignedDocs = filtered.where((d) => d['status'] == 'assigned').toList();
+    final completedDocs = filtered.where((d) => d['status'] == 'completed').toList();
 
-    switch (_selectedSort) {
-      case 'Most Urgent':
-        sorted.sort((a, b) => _urgencyRank(a['urgency'] ?? '').compareTo(_urgencyRank(b['urgency'] ?? '')));
-        break;
-      case 'Nearest':
-        sorted.sort((a, b) => _distanceKm((a['lat'] ?? 0).toDouble(), (a['lng'] ?? 0).toDouble()).compareTo(_distanceKm((b['lat'] ?? 0).toDouble(), (b['lng'] ?? 0).toDouble())));
-        break;
-      case 'Latest':
-      default:
-        sorted.sort((a, b) => ((b['timestamp'] as Timestamp?)?.millisecondsSinceEpoch ?? 0).compareTo(((a['timestamp'] as Timestamp?)?.millisecondsSinceEpoch ?? 0)));
+    if (_selectedSort == 'Completed Only') return completedDocs;
+    if (_selectedSort == 'Unassigned Only') return unassignedDocs;
+
+    void sortList(List<QueryDocumentSnapshot> list) {
+      switch (_selectedSort) {
+        case 'Most Urgent':
+          list.sort((a, b) => _urgencyRank(a['urgency'] ?? '').compareTo(_urgencyRank(b['urgency'] ?? '')));
+          break;
+        case 'Nearest':
+          list.sort((a, b) => _distanceKm((a['lat'] ?? 0).toDouble(), (a['lng'] ?? 0).toDouble()).compareTo(_distanceKm((b['lat'] ?? 0).toDouble(), (b['lng'] ?? 0).toDouble())));
+          break;
+        case 'Latest':
+        default:
+          list.sort((a, b) => ((b['timestamp'] as Timestamp?)?.millisecondsSinceEpoch ?? 0).compareTo(((a['timestamp'] as Timestamp?)?.millisecondsSinceEpoch ?? 0)));
+      }
     }
-    return sorted;
+
+    // Sort each group independently based on user preference
+    sortList(unassignedDocs);
+    sortList(assignedDocs);
+    sortList(completedDocs);
+
+    // Combine them: Unassigned -> Assigned -> Completed
+    return [...unassignedDocs, ...assignedDocs, ...completedDocs];
   }
 
   void _showReportDetail(BuildContext context, Map<String, dynamic> data, String docId, AppLocalizations l10n) {
@@ -256,6 +270,26 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 20),
               ],
 
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _sortOptions.map((opt) {
+                    final isSel = _selectedSort == opt;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(opt, style: TextStyle(fontSize: 12, color: isSel ? Colors.white : theme.colorScheme.primary)),
+                        selected: isSel,
+                        selectedColor: theme.colorScheme.primary,
+                        backgroundColor: theme.colorScheme.primary.withOpacity(0.05),
+                        onSelected: (val) { if (val) setState(() => _selectedSort = opt); },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 12),
+
               Row(
                 children: [
                   _FilterChip(label: l10n.all, count: total, color: theme.colorScheme.primary, isSelected: _selectedFilter == 'All', onTap: () => setState(() => _selectedFilter = 'All')),
@@ -272,11 +306,10 @@ class _DashboardPageState extends State<DashboardPage> {
               if (displayDocs.isEmpty)
                 Center(child: Padding(padding: const EdgeInsets.only(top: 60), child: Column(children: [Icon(Icons.inbox_outlined, size: 48, color: theme.colorScheme.primary.withOpacity(0.4)), const SizedBox(height: 12), Text(l10n.no_reports_found, style: theme.textTheme.bodyMedium)])))
               else
-                ListView.separated(
+                ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: displayDocs.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final doc = displayDocs[index];
                     final data = doc.data() as Map<String, dynamic>;
@@ -284,6 +317,24 @@ class _DashboardPageState extends State<DashboardPage> {
                     final issueType = data['issueType'] ?? 'Other';
                     final status = data['status'] ?? 'unassigned';
                     final isCompleted = status == 'completed';
+                    final isUnassigned = status == 'unassigned';
+
+                    // Check if we need a header
+                    bool showHeader = false;
+                    String headerTitle = '';
+                    if (index == 0) {
+                      // Don't show "Unassigned Tasks" header at the very top
+                      if (!isUnassigned) {
+                        showHeader = true;
+                        headerTitle = status == 'assigned' ? 'In Progress' : 'Completed';
+                      }
+                    } else {
+                      final prevStatus = displayDocs[index - 1]['status'] ?? 'unassigned';
+                      if (status != prevStatus) {
+                        showHeader = true;
+                        headerTitle = status == 'assigned' ? 'In Progress' : 'Completed';
+                      }
+                    }
 
                     String localizedIssue = issueType;
                     if (issueType == 'Food') {
@@ -304,43 +355,62 @@ class _DashboardPageState extends State<DashboardPage> {
                     } else if (status == 'assigned') localizedStatus = l10n.assigned;
                     else if (status == 'completed') localizedStatus = l10n.completed;
 
-                    return Opacity(
-                      opacity: isCompleted ? 0.55 : 1.0,
-                      child: Card(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => _showReportDetail(context, data, doc.id, l10n),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(_issueIcon(issueType), color: theme.colorScheme.primary, size: 20)),
-                                    const SizedBox(width: 10),
-                                    Expanded(child: Text(localizedIssue, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600))),
-                                    _Badge(label: localizedUrgency, color: _urgencyColor(urgency), icon: Icons.circle, iconSize: 8),
-                                  ],
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (showHeader) Padding(
+                          padding: const EdgeInsets.only(top: 20, bottom: 10, left: 4),
+                          child: Text(headerTitle.toUpperCase(), style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Opacity(
+                            opacity: isCompleted ? 0.6 : 1.0,
+                            child: Card(
+                              elevation: isUnassigned ? 4 : 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: isUnassigned 
+                                  ? BorderSide(color: theme.colorScheme.primary.withOpacity(0.3), width: 1)
+                                  : BorderSide.none,
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => _showReportDetail(context, data, doc.id, l10n),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(_issueIcon(issueType), color: theme.colorScheme.primary, size: 20)),
+                                          const SizedBox(width: 10),
+                                          Expanded(child: Text(localizedIssue, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600))),
+                                          _Badge(label: localizedUrgency, color: _urgencyColor(urgency), icon: Icons.circle, iconSize: 8),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(data['description'] ?? '', style: theme.textTheme.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                      if (data['aiSummary'] != null) ...[ const SizedBox(height: 10), AiSummaryCard(aiSummary: data['aiSummary'], compact: true) ],
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.near_me_outlined, size: 14, color: theme.textTheme.bodyMedium?.color),
+                                          const SizedBox(width: 4),
+                                          Text(_distanceLabel(data['lat'], data['lng']), style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                                          const Spacer(),
+                                          _Badge(label: localizedStatus, color: _statusColor(status), icon: _statusIcon(status), iconSize: 12),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
-                                Text(data['description'] ?? '', style: theme.textTheme.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
-                                if (data['aiSummary'] != null) ...[ const SizedBox(height: 10), AiSummaryCard(aiSummary: data['aiSummary'], compact: true) ],
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Icon(Icons.near_me_outlined, size: 14, color: theme.textTheme.bodyMedium?.color),
-                                    const SizedBox(width: 4),
-                                    Text(_distanceLabel(data['lat'], data['lng']), style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                                    const Spacer(),
-                                    _Badge(label: localizedStatus, color: _statusColor(status), icon: _statusIcon(status), iconSize: 12),
-                                  ],
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     );
                   },
                 ),
