@@ -80,18 +80,40 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return Stack(
           children: [
-            ?child,
-            StreamBuilder<User?>(
-              stream: FirebaseAuth.instance.authStateChanges(),
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return const MahiAiAssistant();
-                }
-                return const SizedBox.shrink();
-              },
-            ),
+            if (child != null) child,
+            const _MahiAssistantWrapper(),
           ],
         );
+      },
+    );
+  }
+}
+
+class _MahiAssistantWrapper extends StatefulWidget {
+  const _MahiAssistantWrapper();
+
+  @override
+  State<_MahiAssistantWrapper> createState() => _MahiAssistantWrapperState();
+}
+
+class _MahiAssistantWrapperState extends State<_MahiAssistantWrapper> {
+  late Stream<User?> _authStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _authStream = FirebaseAuth.instance.authStateChanges();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: _authStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return const MahiAiAssistant();
+        }
+        return const SizedBox.shrink();
       },
     );
   }

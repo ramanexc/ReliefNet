@@ -15,7 +15,7 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveClientMixin {
   String _selectedFilter = 'All';
   String _selectedSort = 'Nearest';
   Position? _userPosition;
@@ -24,6 +24,10 @@ class _DashboardPageState extends State<DashboardPage> {
   String? _aiDashboardSummary;
   bool _isAnalyzingDashboard = false;
   bool _summaryRequested = false;
+  Stream<QuerySnapshot>? _reportsStream;
+
+  @override
+  bool get wantKeepAlive => true;
 
   final List<String> _sortOptions = ['Nearest', 'Latest', 'Most Urgent', 'Unassigned Only', 'Completed Only'];
 
@@ -32,6 +36,10 @@ class _DashboardPageState extends State<DashboardPage> {
     super.initState();
     _loadUserProfile();
     _fetchUserLocation();
+    _reportsStream = FirebaseFirestore.instance
+        .collection('reports')
+        .orderBy('timestamp', descending: true)
+        .snapshots();
   }
 
   Future<void> _loadUserProfile() async {
@@ -54,7 +62,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _fetchUserLocation() async {
-    setState(() => _fetchingLocation = true);
+    if (mounted) setState(() => _fetchingLocation = true);
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return;
@@ -115,7 +123,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   double _distanceKm(double lat, double lng) {
-    if (_userPosition == null) return double.infinity;
+    if (_userPosition == null) return 10000.0; // Arbitrary high number instead of infinity for sorting
     const R = 6371.0;
     final dLat = (lat - _userPosition!.latitude) * pi / 180;
     final dLng = (lng - _userPosition!.longitude) * pi / 180;
@@ -127,7 +135,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (lat == null || lng == null) return 'No location';
     if (_userPosition == null) return '...';
     final d = _distanceKm(lat, lng);
-    if (d == double.infinity) return '';
+    if (d >= 10000) return '';
     return d < 1 ? '${(d * 1000).toStringAsFixed(0)} m' : '${d.toStringAsFixed(1)} km';
   }
 
@@ -143,7 +151,6 @@ class _DashboardPageState extends State<DashboardPage> {
   List<QueryDocumentSnapshot> _applyFilterAndSort(List<QueryDocumentSnapshot> docs) {
     List<QueryDocumentSnapshot> filtered = _selectedFilter == 'All' ? docs : docs.where((d) => d['urgency'] == _selectedFilter).toList();
     
-    // Split into three distinct groups
     final unassignedDocs = filtered.where((d) => d['status'] == 'unassigned').toList();
     final assignedDocs = filtered.where((d) => d['status'] == 'assigned').toList();
     final completedDocs = filtered.where((d) => d['status'] == 'completed').toList();
@@ -165,12 +172,10 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     }
 
-    // Sort each group independently based on user preference
     sortList(unassignedDocs);
     sortList(assignedDocs);
     sortList(completedDocs);
 
-    // Combine them: Unassigned -> Assigned -> Completed
     return [...unassignedDocs, ...assignedDocs, ...completedDocs];
   }
 
@@ -196,16 +201,20 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('reports').orderBy('timestamp', descending: true).snapshots(),
+      stream: _reportsStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) return const Center(child: Text('Error'));
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-        final allDocs = snapshot.data!.docs;
+        final allDocs = snapshot.data?.docs ?? [];
         final total = allDocs.length;
         final high = allDocs.where((d) => d['urgency'] == 'High').length;
         final medium = allDocs.where((d) => d['urgency'] == 'Medium').length;
@@ -217,202 +226,208 @@ class _DashboardPageState extends State<DashboardPage> {
           Future.delayed(const Duration(milliseconds: 800), () { if (mounted) _generateDashboardSummary(allDocs); });
         }
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        return CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(l10n.live_reports, style: theme.textTheme.bodyLarge?.copyWith(fontSize: 22, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 2),
-                        Text('$total ${l10n.active_reports.toLowerCase()}', style: theme.textTheme.bodyMedium),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(l10n.live_reports, style: theme.textTheme.bodyLarge?.copyWith(fontSize: 22, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text('$total ${l10n.active_reports.toLowerCase()}', style: theme.textTheme.bodyMedium),
+                            ],
+                          ),
+                        ),
+                        if (_fetchingLocation) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        else if (_userPosition != null) Icon(Icons.location_on, size: 16, color: theme.colorScheme.primary)
                       ],
                     ),
-                  ),
-                  if (_fetchingLocation) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  else if (_userPosition != null) Icon(Icons.location_on, size: 16, color: theme.colorScheme.primary)
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              if (_aiDashboardSummary != null || _isAnalyzingDashboard) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [theme.colorScheme.primary.withOpacity(0.05), theme.colorScheme.primary.withOpacity(0.12)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.auto_awesome, size: 18, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Text(l10n.ai_situation_summary, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(_isAnalyzingDashboard ? l10n.analyzing_crisis_data : _aiDashboardSummary ?? '', style: theme.textTheme.bodyMedium?.copyWith(height: 1.4, fontSize: 13, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: _sortOptions.map((opt) {
-                    final isSel = _selectedSort == opt;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(opt, style: TextStyle(fontSize: 12, color: isSel ? Colors.white : theme.colorScheme.primary)),
-                        selected: isSel,
-                        selectedColor: theme.colorScheme.primary,
-                        backgroundColor: theme.colorScheme.primary.withOpacity(0.05),
-                        onSelected: (val) { if (val) setState(() => _selectedSort = opt); },
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              Row(
-                children: [
-                  _FilterChip(label: l10n.all, count: total, color: theme.colorScheme.primary, isSelected: _selectedFilter == 'All', onTap: () => setState(() => _selectedFilter = 'All')),
-                  const SizedBox(width: 8),
-                  _FilterChip(label: l10n.high, count: high, color: const Color(0xFFEF4444), isSelected: _selectedFilter == 'High', onTap: () => setState(() => _selectedFilter = 'High')),
-                  const SizedBox(width: 8),
-                  _FilterChip(label: l10n.medium, count: medium, color: const Color(0xFFF59E0B), isSelected: _selectedFilter == 'Medium', onTap: () => setState(() => _selectedFilter = 'Medium')),
-                  const SizedBox(width: 8),
-                  _FilterChip(label: l10n.low, count: low, color: const Color(0xFF22C55E), isSelected: _selectedFilter == 'Low', onTap: () => setState(() => _selectedFilter = 'Low')),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              if (displayDocs.isEmpty)
-                Center(child: Padding(padding: const EdgeInsets.only(top: 60), child: Column(children: [Icon(Icons.inbox_outlined, size: 48, color: theme.colorScheme.primary.withOpacity(0.4)), const SizedBox(height: 12), Text(l10n.no_reports_found, style: theme.textTheme.bodyMedium)])))
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: displayDocs.length,
-                  itemBuilder: (context, index) {
-                    final doc = displayDocs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    final urgency = data['urgency'] ?? 'Low';
-                    final issueType = data['issueType'] ?? 'Other';
-                    final status = data['status'] ?? 'unassigned';
-                    final isCompleted = status == 'completed';
-                    final isUnassigned = status == 'unassigned';
-
-                    // Check if we need a header
-                    bool showHeader = false;
-                    String headerTitle = '';
-                    if (index == 0) {
-                      // Don't show "Unassigned Tasks" header at the very top
-                      if (!isUnassigned) {
-                        showHeader = true;
-                        headerTitle = status == 'assigned' ? 'In Progress' : 'Completed';
-                      }
-                    } else {
-                      final prevStatus = displayDocs[index - 1]['status'] ?? 'unassigned';
-                      if (status != prevStatus) {
-                        showHeader = true;
-                        headerTitle = status == 'assigned' ? 'In Progress' : 'Completed';
-                      }
-                    }
-
-                    String localizedIssue = issueType;
-                    if (issueType == 'Food') {
-                      localizedIssue = l10n.food;
-                    } else if (issueType == 'Medical') localizedIssue = l10n.medical;
-                    else if (issueType == 'Shelter') localizedIssue = l10n.shelter;
-                    else if (issueType == 'Other') localizedIssue = l10n.other;
-
-                    String localizedUrgency = urgency;
-                    if (urgency == 'High') {
-                      localizedUrgency = l10n.high;
-                    } else if (urgency == 'Medium') localizedUrgency = l10n.medium;
-                    else if (urgency == 'Low') localizedUrgency = l10n.low;
-
-                    String localizedStatus = status;
-                    if (status == 'unassigned') {
-                      localizedStatus = l10n.unassigned;
-                    } else if (status == 'assigned') localizedStatus = l10n.assigned;
-                    else if (status == 'completed') localizedStatus = l10n.completed;
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (showHeader) Padding(
-                          padding: const EdgeInsets.only(top: 20, bottom: 10, left: 4),
-                          child: Text(headerTitle.toUpperCase(), style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                    const SizedBox(height: 16),
+                    if (_aiDashboardSummary != null || _isAnalyzingDashboard) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [theme.colorScheme.primary.withOpacity(0.05), theme.colorScheme.primary.withOpacity(0.12)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Opacity(
-                            opacity: isCompleted ? 0.6 : 1.0,
-                            child: Card(
-                              elevation: isUnassigned ? 4 : 1,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: isUnassigned 
-                                  ? BorderSide(color: theme.colorScheme.primary.withOpacity(0.3), width: 1)
-                                  : BorderSide.none,
-                              ),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () => _showReportDetail(context, data, doc.id, l10n),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(_issueIcon(issueType), color: theme.colorScheme.primary, size: 20)),
-                                          const SizedBox(width: 10),
-                                          Expanded(child: Text(localizedIssue, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600))),
-                                          _Badge(label: localizedUrgency, color: _urgencyColor(urgency), icon: Icons.circle, iconSize: 8),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(data['description'] ?? '', style: theme.textTheme.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
-                                      if (data['aiSummary'] != null) ...[ const SizedBox(height: 10), AiSummaryCard(aiSummary: data['aiSummary'], compact: true) ],
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.near_me_outlined, size: 14, color: theme.textTheme.bodyMedium?.color),
-                                          const SizedBox(width: 4),
-                                          Text(_distanceLabel(data['lat'], data['lng']), style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                                          const Spacer(),
-                                          _Badge(label: localizedStatus, color: _statusColor(status), icon: _statusIcon(status), iconSize: 12),
-                                        ],
-                                      ),
-                                    ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.auto_awesome, size: 18, color: Colors.blue),
+                                const SizedBox(width: 8),
+                                Text(l10n.ai_situation_summary, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(_isAnalyzingDashboard ? l10n.analyzing_crisis_data : _aiDashboardSummary ?? '', style: theme.textTheme.bodyMedium?.copyWith(height: 1.4, fontSize: 13, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _sortOptions.map((opt) {
+                          final isSel = _selectedSort == opt;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(opt, style: TextStyle(fontSize: 12, color: isSel ? Colors.white : theme.colorScheme.primary)),
+                              selected: isSel,
+                              selectedColor: theme.colorScheme.primary,
+                              backgroundColor: theme.colorScheme.primary.withOpacity(0.05),
+                              onSelected: (val) { if (val) setState(() => _selectedSort = opt); },
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _FilterChip(label: l10n.all, count: total, color: theme.colorScheme.primary, isSelected: _selectedFilter == 'All', onTap: () => setState(() => _selectedFilter = 'All')),
+                        const SizedBox(width: 8),
+                        _FilterChip(label: l10n.high, count: high, color: const Color(0xFFEF4444), isSelected: _selectedFilter == 'High', onTap: () => setState(() => _selectedFilter = 'High')),
+                        const SizedBox(width: 8),
+                        _FilterChip(label: l10n.medium, count: medium, color: const Color(0xFFF59E0B), isSelected: _selectedFilter == 'Medium', onTap: () => setState(() => _selectedFilter = 'Medium')),
+                        const SizedBox(width: 8),
+                        _FilterChip(label: l10n.low, count: low, color: const Color(0xFF22C55E), isSelected: _selectedFilter == 'Low', onTap: () => setState(() => _selectedFilter = 'Low')),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+            if (displayDocs.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.inbox_outlined, size: 48, color: theme.colorScheme.primary.withOpacity(0.4)), const SizedBox(height: 12), Text(l10n.no_reports_found, style: theme.textTheme.bodyMedium)])),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final doc = displayDocs[index];
+                      final data = doc.data() as Map<String, dynamic>;
+                      final urgency = data['urgency'] ?? 'Low';
+                      final issueType = data['issueType'] ?? 'Other';
+                      final status = data['status'] ?? 'unassigned';
+                      final isCompleted = status == 'completed';
+                      final isUnassigned = status == 'unassigned';
+
+                      bool showHeader = false;
+                      String headerTitle = '';
+                      if (index == 0) {
+                        if (!isUnassigned) {
+                          showHeader = true;
+                          headerTitle = status == 'assigned' ? 'In Progress' : 'Completed';
+                        }
+                      } else {
+                        final prevStatus = displayDocs[index - 1]['status'] ?? 'unassigned';
+                        if (status != prevStatus) {
+                          showHeader = true;
+                          headerTitle = status == 'assigned' ? 'In Progress' : 'Completed';
+                        }
+                      }
+
+                      String localizedIssue = issueType;
+                      if (issueType == 'Food') localizedIssue = l10n.food;
+                      else if (issueType == 'Medical') localizedIssue = l10n.medical;
+                      else if (issueType == 'Shelter') localizedIssue = l10n.shelter;
+                      else if (issueType == 'Other') localizedIssue = l10n.other;
+
+                      String localizedUrgency = urgency;
+                      if (urgency == 'High') localizedUrgency = l10n.high;
+                      else if (urgency == 'Medium') localizedUrgency = l10n.medium;
+                      else if (urgency == 'Low') localizedUrgency = l10n.low;
+
+                      String localizedStatus = status;
+                      if (status == 'unassigned') localizedStatus = l10n.unassigned;
+                      else if (status == 'assigned') localizedStatus = l10n.assigned;
+                      else if (status == 'completed') localizedStatus = l10n.completed;
+
+                      return Column(
+                        key: ValueKey(doc.id),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (showHeader) Padding(
+                            padding: const EdgeInsets.only(top: 20, bottom: 10, left: 4),
+                            child: Text(headerTitle.toUpperCase(), style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Opacity(
+                              opacity: isCompleted ? 0.6 : 1.0,
+                              child: Card(
+                                elevation: isUnassigned ? 4 : 1,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: isUnassigned 
+                                    ? BorderSide(color: theme.colorScheme.primary.withOpacity(0.3), width: 1)
+                                    : BorderSide.none,
+                                ),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => _showReportDetail(context, data, doc.id, l10n),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(14),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(_issueIcon(issueType), color: theme.colorScheme.primary, size: 20)),
+                                            const SizedBox(width: 10),
+                                            Expanded(child: Text(localizedIssue, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600))),
+                                            _Badge(label: localizedUrgency, color: _urgencyColor(urgency), icon: Icons.circle, iconSize: 8),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(data['description'] ?? '', style: theme.textTheme.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                        if (data['aiSummary'] != null) ...[ const SizedBox(height: 10), AiSummaryCard(aiSummary: data['aiSummary'], compact: true) ],
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.near_me_outlined, size: 14, color: theme.textTheme.bodyMedium?.color),
+                                            const SizedBox(width: 4),
+                                            Text(_distanceLabel(data['lat'], data['lng']), style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                                            const Spacer(),
+                                            _Badge(label: localizedStatus, color: _statusColor(status), icon: _statusIcon(status), iconSize: 12),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                    childCount: displayDocs.length,
+                  ),
                 ),
-            ],
-          ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          ],
         );
       },
     );
@@ -450,9 +465,8 @@ class _ReportDetailSheet extends StatelessWidget {
     final aiSummary = data['aiSummary'] as Map<String, dynamic>?;
 
     String localizedStatus = _status;
-    if (_status == 'unassigned') {
-      localizedStatus = l10n.unassigned;
-    } else if (_status == 'assigned') localizedStatus = l10n.assigned;
+    if (_status == 'unassigned') localizedStatus = l10n.unassigned;
+    else if (_status == 'assigned') localizedStatus = l10n.assigned;
     else if (_status == 'completed') localizedStatus = l10n.completed;
 
     return DraggableScrollableSheet(
