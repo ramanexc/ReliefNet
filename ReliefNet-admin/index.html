@@ -3,9 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="ReliefNet Admin Panel — Manage disaster relief reports, volunteer applications, and coordination.">
+<meta name="color-scheme" content="light dark">
 <title>ReliefNet Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Leaflet CSS & JS -->
+<link rel="stylesheet" href="css/leaflet.css">
+<script src="js/leaflet.js"></script>
+
+<!-- Chart.js -->
+<script src="js/chart.js"></script>
+
+
 <link rel="stylesheet" href="css/style.css">
+<script>
+{
+  const theme = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (theme === 'dark' || (!theme && prefersDark)) {
+    document.documentElement.classList.add('dark-mode');
+  }
+}
+</script>
 </head>
 <body>
 
@@ -22,12 +41,12 @@
     <h2>Welcome back</h2>
     <p>Sign in with your admin account to continue</p>
     <div class="form-group">
-      <label>Email</label>
-      <input type="email" id="email-input" placeholder="admin@reliefnet.app">
+      <label for="email-input">Email</label>
+      <input type="email" id="email-input" placeholder="admin@reliefnet.app" autocomplete="email">
     </div>
     <div class="form-group">
-      <label>Password</label>
-      <input type="password" id="pass-input" placeholder="••••••••">
+      <label for="pass-input">Password</label>
+      <input type="password" id="pass-input" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button class="btn-primary" onclick="signIn()">Sign In</button>
     <div id="auth-error"></div>
@@ -37,8 +56,16 @@
 <!-- ─── APP ──────────────────────────────────────────────── -->
 <div id="app">
 
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- HAMBURGER (mobile) -->
+  <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Toggle navigation menu">
+    <span></span><span></span><span></span>
+  </button>
+
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
     <div class="sidebar-logo">
       <div class="sidebar-logo-icon">🛰️</div>
       <div>
@@ -47,24 +74,27 @@
       </div>
     </div>
     <nav class="sidebar-nav">
-      <div class="nav-item active" onclick="showPage('overview')">
-        <span class="nav-icon">📊</span> Overview
-      </div>
-      <div class="nav-item" onclick="showPage('reports')">
-        <span class="nav-icon">📋</span> Reports
-        <span class="nav-badge" id="reports-badge" style="display:none"></span>
-      </div>
-      <div class="nav-item" onclick="showPage('applications')">
-        <span class="nav-icon">🙋</span> Applications
-        <span class="nav-badge" id="apps-badge" style="display:none"></span>
-      </div>
-      <div class="nav-item" onclick="showPage('volunteers')">
-        <span class="nav-icon">👥</span> Volunteers
-      </div>
+      <button class="nav-item active" onclick="showPage('overview', this)" type="button">
+        <span class="nav-icon" aria-hidden="true">📊</span> Overview
+      </button>
+      <button class="nav-item" onclick="showPage('reports', this)" type="button">
+        <span class="nav-icon" aria-hidden="true">📋</span> Reports
+        <span class="nav-badge" id="reports-badge" style="display:none" aria-label="Active reports count"></span>
+      </button>
+      <button class="nav-item" onclick="showPage('applications', this)" type="button">
+        <span class="nav-icon" aria-hidden="true">🙋</span> Applications
+        <span class="nav-badge" id="apps-badge" style="display:none" aria-label="Pending applications count"></span>
+      </button>
+      <button class="nav-item" onclick="showPage('volunteers', this)" type="button">
+        <span class="nav-icon" aria-hidden="true">👥</span> Volunteers
+      </button>
     </nav>
     <div class="sidebar-footer">
+      <button class="btn-theme-toggle" onclick="toggleTheme()" type="button" aria-label="Toggle theme">
+        <span class="theme-icon" aria-hidden="true">🌙</span> <span class="theme-text">Dark Mode</span>
+      </button>
       <div class="admin-info">
-        <div class="admin-avatar" id="admin-avatar">A</div>
+        <div class="admin-avatar" id="admin-avatar" aria-hidden="true">A</div>
         <div class="admin-email" id="admin-email">—</div>
       </div>
       <button class="btn-logout" onclick="signOut()">Sign Out</button>
@@ -81,43 +111,70 @@
           <div class="page-title">Overview</div>
           <div class="page-subtitle" id="overview-date">—</div>
         </div>
+        <div class="sync-status">
+          <span class="sync-dot"></span>
+          <span class="sync-text">Live</span>
+          <button class="sync-btn" onclick="forceSync()" title="Refresh data">
+            <span class="sync-icon">🔄</span>
+          </button>
+        </div>
       </div>
       <div class="stats-grid">
-        <div class="stat-card">
+        <button class="stat-card" onclick="goToReports('all')" type="button">
           <div class="stat-label">Total Reports</div>
           <div class="stat-value" id="stat-total">—</div>
           <div class="stat-sub">All time</div>
-        </div>
-        <div class="stat-card">
+        </button>
+        <button class="stat-card" onclick="goToReports('active')" type="button">
           <div class="stat-label">Active Reports</div>
           <div class="stat-value" id="stat-active" style="color:var(--blue)">—</div>
           <div class="stat-sub">Needs attention</div>
-        </div>
-        <div class="stat-card">
+        </button>
+        <button class="stat-card" onclick="goToReports('completed')" type="button">
           <div class="stat-label">Resolved</div>
           <div class="stat-value" id="stat-resolved" style="color:var(--green)">—</div>
           <div class="stat-sub">Completed cases</div>
-        </div>
-        <div class="stat-card">
+        </button>
+        <button class="stat-card" onclick="goToApps('pending')" type="button">
           <div class="stat-label">Pending Applications</div>
           <div class="stat-value" id="stat-pending-apps" style="color:var(--orange)">—</div>
           <div class="stat-sub">Awaiting review</div>
-        </div>
+        </button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+      <!-- MAP SECTION -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header"><div class="card-title">📍 Active Reports Map</div></div>
+        <div id="overview-map"></div>
+      </div>
+
+      <div class="overview-grid">
         <div class="card">
           <div class="card-header"><div class="card-title">Recent Reports</div></div>
-          <table>
-            <thead><tr><th>Type</th><th>Urgency</th><th>Status</th><th>Time</th></tr></thead>
-            <tbody id="overview-reports-body">
-              <tr><td colspan="4" class="loading"><span class="spinner"></span>Loading...</td></tr>
-            </tbody>
-          </table>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Type</th><th>Urgency</th><th>Status</th><th>Time</th></tr></thead>
+              <tbody id="overview-reports-body">
+                <tr><td colspan="4" class="loading"><span class="spinner"></span>Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
         <div class="card">
-          <div class="card-header"><div class="card-title">Reports by Category</div></div>
-          <div id="category-breakdown" style="padding:16px;">
-            <div class="loading"><span class="spinner"></span>Loading...</div>
+          <div class="card-header"><div class="card-title">📈 Analytics Dashboard</div></div>
+          <div class="charts-container">
+            <div class="chart-box">
+              <div class="chart-title">Reports by Category</div>
+              <div class="chart-canvas-wrapper"><canvas id="chart-categories"></canvas></div>
+            </div>
+            <div class="chart-box">
+              <div class="chart-title">Reports by Urgency</div>
+              <div class="chart-canvas-wrapper"><canvas id="chart-urgency"></canvas></div>
+            </div>
+            <div class="chart-box">
+              <div class="chart-title">Submission Activity (Last 7 Days)</div>
+              <div class="chart-canvas-wrapper"><canvas id="chart-trends"></canvas></div>
+            </div>
           </div>
         </div>
       </div>
@@ -130,24 +187,39 @@
           <div class="page-title">Reports</div>
           <div class="page-subtitle">All submitted community reports</div>
         </div>
+        <div class="sync-status">
+          <span class="sync-dot"></span>
+          <span class="sync-text">Live</span>
+          <button class="sync-btn" onclick="forceSync()" title="Refresh data">
+            <span class="sync-icon">🔄</span>
+          </button>
+        </div>
       </div>
       <div class="card">
         <div class="card-header">
           <div class="card-title">All Reports</div>
           <div class="filter-row">
             <button class="filter-btn active" onclick="filterReports('all', this)">All</button>
+            <button class="filter-btn" onclick="filterReports('active', this)">⏳ Active</button>
             <button class="filter-btn" onclick="filterReports('High', this)">🔴 High</button>
             <button class="filter-btn" onclick="filterReports('Medium', this)">🟠 Medium</button>
             <button class="filter-btn" onclick="filterReports('Low', this)">🟢 Low</button>
             <button class="filter-btn" onclick="filterReports('completed', this)">✅ Resolved</button>
+            <button class="filter-btn btn-export" onclick="exportReports()" type="button">📥 Export CSV</button>
+          </div>
+          <div class="search-container">
+            <input type="text" id="reports-search" placeholder="Search reports..." oninput="searchReports(this.value)" class="search-input">
           </div>
         </div>
-        <table>
-          <thead><tr><th>Type</th><th>Description</th><th>Urgency</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead>
-          <tbody id="reports-body">
-            <tr><td colspan="6" class="loading"><span class="spinner"></span>Loading...</td></tr>
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Type</th><th>Description</th><th>Urgency</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead>
+            <tbody id="reports-body">
+              <tr><td colspan="6" class="loading"><span class="spinner"></span>Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination-bar" id="reports-pagination" style="display:none"></div>
       </div>
     </div>
 
@@ -158,6 +230,13 @@
           <div class="page-title">Volunteer Applications</div>
           <div class="page-subtitle">Review and approve volunteer requests</div>
         </div>
+        <div class="sync-status">
+          <span class="sync-dot"></span>
+          <span class="sync-text">Live</span>
+          <button class="sync-btn" onclick="forceSync()" title="Refresh data">
+            <span class="sync-icon">🔄</span>
+          </button>
+        </div>
       </div>
       <div class="card">
         <div class="card-header">
@@ -167,14 +246,21 @@
             <button class="filter-btn" onclick="filterApps('pending', this)">⏳ Pending</button>
             <button class="filter-btn" onclick="filterApps('approved', this)">✅ Approved</button>
             <button class="filter-btn" onclick="filterApps('rejected', this)">❌ Rejected</button>
+            <button class="filter-btn btn-export" onclick="exportApps()" type="button">📥 Export CSV</button>
+          </div>
+          <div class="search-container">
+            <input type="text" id="apps-search" placeholder="Search applications..." oninput="searchApps(this.value)" class="search-input">
           </div>
         </div>
-        <table>
-          <thead><tr><th>Email</th><th>Skills</th><th>Reason</th><th>Status</th><th>Applied</th><th>Action</th></tr></thead>
-          <tbody id="apps-body">
-            <tr><td colspan="6" class="loading"><span class="spinner"></span>Loading...</td></tr>
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Email</th><th>Skills</th><th>Reason</th><th>Status</th><th>Applied</th><th>Action</th></tr></thead>
+            <tbody id="apps-body">
+              <tr><td colspan="6" class="loading"><span class="spinner"></span>Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination-bar" id="apps-pagination" style="display:none"></div>
       </div>
     </div>
 
@@ -185,15 +271,33 @@
           <div class="page-title">Volunteers</div>
           <div class="page-subtitle">All verified volunteers</div>
         </div>
+        <div class="sync-status">
+          <span class="sync-dot"></span>
+          <span class="sync-text">Live</span>
+          <button class="sync-btn" onclick="forceSync()" title="Refresh data">
+            <span class="sync-icon">🔄</span>
+          </button>
+        </div>
       </div>
       <div class="card">
-        <div class="card-header"><div class="card-title">Volunteer List</div></div>
-        <table>
-          <thead><tr><th>Name</th><th>Username</th><th>Volunteer ID</th><th>Joined</th></tr></thead>
-          <tbody id="volunteers-body">
-            <tr><td colspan="4" class="loading"><span class="spinner"></span>Loading...</td></tr>
-          </tbody>
-        </table>
+        <div class="card-header">
+          <div class="card-title">Volunteer List</div>
+          <div class="filter-row">
+            <button class="filter-btn btn-export" onclick="exportVolunteers()" type="button">📥 Export CSV</button>
+          </div>
+          <div class="search-container">
+            <input type="text" id="volunteers-search" placeholder="Search volunteers..." oninput="searchVolunteers(this.value)" class="search-input">
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Name</th><th>Username</th><th>Volunteer ID</th><th>Joined</th><th>Action</th></tr></thead>
+            <tbody id="volunteers-body">
+              <tr><td colspan="5" class="loading"><span class="spinner"></span>Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination-bar" id="volunteers-pagination" style="display:none"></div>
       </div>
     </div>
 
@@ -201,6 +305,27 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- ─── REPORT DETAIL MODAL ──────────────────────────────── -->
+<div id="report-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center;padding:24px">
+  <div class="modal-content">
+    <div id="modal-body" style="padding:28px"></div>
+  </div>
+</div>
+
+<!-- ─── VOLUNTEER DETAIL MODAL ────────────────────────────── -->
+<div id="volunteer-modal" role="dialog" aria-modal="true" aria-labelledby="vol-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:210;align-items:center;justify-content:center;padding:24px">
+  <div class="modal-content" style="max-width: 600px;">
+    <div id="vol-modal-body" style="padding:28px"></div>
+  </div>
+</div>
+
+<!-- ─── APPLICATION DETAIL MODAL ──────────────────────────── -->
+<div id="app-modal" role="dialog" aria-modal="true" aria-labelledby="app-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:205;align-items:center;justify-content:center;padding:24px">
+  <div class="modal-content" style="max-width: 600px;">
+    <div id="app-modal-body" style="padding:28px"></div>
+  </div>
+</div>
 
 <script type="module" src="js/firebase-init.js"></script>
 <script type="module" src="js/utils.js"></script>

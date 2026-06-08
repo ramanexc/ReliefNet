@@ -1,12 +1,18 @@
 import { loadReports, allReports } from "./reports.js";
 import { loadApplications, allApps } from "./applications.js";
 import { loadVolunteers } from "./volunteers.js";
-import { typeIcon, urgencyBadge, statusBadge, formatTime, emptyRow } from "./utils.js";
+import { typeIcon, urgencyBadge, statusBadge, formatTime, emptyRow, esc } from "./utils.js";
 
 export async function loadAll() {
   await Promise.all([loadReports(), loadApplications(), loadVolunteers()]);
   renderOverview();
 }
+
+let overviewMap = null;
+let markersGroup = null;
+let chartCategories = null;
+let chartUrgency = null;
+let chartTrends = null;
 
 export function renderOverview() {
   const total       = allReports.length;
@@ -26,8 +32,8 @@ export function renderOverview() {
     tbody.innerHTML = emptyRow(4, '📭', 'No reports yet');
   } else {
     tbody.innerHTML = recent.map(r => `
-      <tr>
-        <td>${typeIcon(r.issueType)} ${r.issueType || '—'}</td>
+      <tr style="cursor:pointer" onclick="window.openReport('${r.id}')">
+        <td>${typeIcon(r.issueType)} ${esc(r.issueType || '—')}</td>
         <td>${urgencyBadge(r.urgency)}</td>
         <td>${statusBadge(r.status)}</td>
         <td style="font-size:12px;color:var(--gray-400)">${formatTime(r.timestamp)}</td>
@@ -35,28 +41,231 @@ export function renderOverview() {
     `).join('');
   }
 
-  // Category breakdown
-  const cats = {};
-  allReports.forEach(r => { cats[r.issueType || 'Other'] = (cats[r.issueType || 'Other'] || 0) + 1; });
-  const catEl = document.getElementById('category-breakdown');
-  if (total === 0) {
-    catEl.innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">No data yet</div></div>';
-    return;
+  // ─── LEAFLET MAP INITIALIZATION & SYNC ─────────────────────
+  try {
+    if (typeof L !== 'undefined') {
+      const mapContainer = document.getElementById('overview-map');
+      if (mapContainer) {
+        if (!overviewMap) {
+          overviewMap = L.map('overview-map').setView([20.5937, 78.9629], 5);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+          }).addTo(overviewMap);
+          markersGroup = L.featureGroup().addTo(overviewMap);
+        } else {
+          markersGroup.clearLayers();
+        }
+
+        const reportsWithCoords = allReports.filter(r => {
+          const lat = Number(r.lat);
+          const lng = Number(r.lng);
+          return !isNaN(lat) && !isNaN(lng) && r.lat !== undefined && r.lng !== undefined && r.status !== 'completed';
+        });
+        
+        reportsWithCoords.forEach(r => {
+          const lat = Number(r.lat);
+          const lng = Number(r.lng);
+          const markerColor = r.urgency === 'High' ? '#EF4444' : r.urgency === 'Medium' ? '#F97316' : '#22C55E';
+          const marker = L.circleMarker([lat, lng], {
+            radius: 8,
+            fillColor: markerColor,
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+          });
+
+          marker.bindPopup(`
+            <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--gray-800);line-height:1.4;">
+              <strong style="font-size:14px;color:var(--gray-900);display:block;margin-bottom:2px;">${typeIcon(r.issueType)} ${esc(r.issueType)}</strong>
+              <span style="font-size:11px;color:var(--gray-400);font-family:'DM Mono',monospace;display:block;margin-bottom:4px;">ID: ${r.id}</span>
+              <p style="margin:4px 0 8px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--gray-600);">${esc(r.description)}</p>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;font-weight:700;color:${markerColor};">${r.urgency}</span>
+                <button onclick="window.openReport('${r.id}')" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;transition:opacity 0.2s;">View →</button>
+              </div>
+            </div>
+          `);
+          marker.addTo(markersGroup);
+        });
+
+        if (reportsWithCoords.length > 0) {
+          try {
+            overviewMap.fitBounds(markersGroup.getBounds(), { padding: [40, 40] });
+          } catch (_) {}
+        }
+      }
+    } else {
+      console.warn("Leaflet library L is not loaded.");
+      const mapContainer = document.getElementById('overview-map');
+      if (mapContainer) {
+        mapContainer.innerHTML = '<div class="empty"><div class="empty-icon">🗺️</div><div class="empty-text">Map is offline (Leaflet failed to load)</div></div>';
+      }
+    }
+  } catch (err) {
+    console.error("Failed to initialize Overview Map:", err);
   }
-  catEl.innerHTML = Object.entries(cats).map(([k, v]) => {
-    const pct = Math.round((v / total) * 100);
-    return `
-      <div style="margin-bottom:14px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;">
-          <span>${typeIcon(k)} ${k}</span>
-          <span style="font-weight:600;font-family:'DM Mono',monospace">
-            ${v} <span style="color:var(--gray-400);font-weight:400">(${pct}%)</span>
-          </span>
-        </div>
-        <div style="height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:var(--blue);border-radius:3px;transition:width 0.5s"></div>
-        </div>
-      </div>
-    `;
-  }).join('');
+
+  // ─── CHART.JS ANALYTICS DASHBOARD ──────────────────────────
+  try {
+    if (typeof Chart !== 'undefined') {
+      const isDarkMode = document.documentElement.classList.contains('dark-mode');
+      const textColor = isDarkMode ? '#D1D5DB' : '#6B7280';
+      const gridColor = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+      const borderCol = isDarkMode ? '#111827' : '#ffffff';
+
+      // 1. Doughnut Chart: Categories
+      const categoriesCount = {};
+      allReports.forEach(r => {
+        const cat = r.issueType || 'Other';
+        categoriesCount[cat] = (categoriesCount[cat] || 0) + 1;
+      });
+      const catLabels = Object.keys(categoriesCount);
+      const catData = Object.values(categoriesCount);
+      const ctxCat = document.getElementById('chart-categories');
+
+      if (ctxCat) {
+        if (chartCategories) chartCategories.destroy();
+        chartCategories = new Chart(ctxCat, {
+          type: 'doughnut',
+          data: {
+            labels: catLabels,
+            datasets: [{
+              data: catData,
+              backgroundColor: ['#2563EB', '#22C55E', '#EF4444', '#F97316', '#A855F7', '#6B7280'],
+              borderWidth: 1.5,
+              borderColor: borderCol
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: {
+                  boxWidth: 12,
+                  font: { family: 'DM Sans', size: 11 },
+                  color: textColor
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // 2. Bar Chart: Urgency
+      const urgencyCount = { High: 0, Medium: 0, Low: 0 };
+      allReports.forEach(r => {
+        if (r.urgency in urgencyCount) {
+          urgencyCount[r.urgency]++;
+        }
+      });
+      const ctxUrg = document.getElementById('chart-urgency');
+
+      if (ctxUrg) {
+        if (chartUrgency) chartUrgency.destroy();
+        chartUrgency = new Chart(ctxUrg, {
+          type: 'bar',
+          data: {
+            labels: ['🔴 High', '🟠 Medium', '🟢 Low'],
+            datasets: [{
+              label: 'Reports',
+              data: [urgencyCount.High, urgencyCount.Medium, urgencyCount.Low],
+              backgroundColor: ['rgba(239, 68, 68, 0.85)', 'rgba(249, 115, 22, 0.85)', 'rgba(34, 197, 94, 0.85)'],
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: textColor }
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: gridColor },
+                ticks: { stepSize: 1, color: textColor }
+              }
+            }
+          }
+        });
+      }
+
+      // 3. Line Chart: Timeline (Last 7 Days)
+      const days = [];
+      const submissionsByDay = {};
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateString = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        days.push(dateString);
+        submissionsByDay[dateString] = 0;
+      }
+      allReports.forEach(r => {
+        const ts = r.timestamp;
+        if (ts) {
+          const d = ts.toDate ? ts.toDate() : new Date(ts);
+          const str = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+          if (str in submissionsByDay) {
+            submissionsByDay[str]++;
+          }
+        }
+      });
+      const trendsData = days.map(d => submissionsByDay[d]);
+      const ctxTrd = document.getElementById('chart-trends');
+
+      if (ctxTrd) {
+        if (chartTrends) chartTrends.destroy();
+        chartTrends = new Chart(ctxTrd, {
+          type: 'line',
+          data: {
+            labels: days,
+            datasets: [{
+              label: 'Submissions',
+              data: trendsData,
+              borderColor: '#2563EB',
+              backgroundColor: 'rgba(37, 99, 235, 0.1)',
+              fill: true,
+              tension: 0.3,
+              borderWidth: 2,
+              pointBackgroundColor: '#2563EB'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: textColor }
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: gridColor },
+                ticks: { stepSize: 1, color: textColor }
+              }
+            }
+          }
+        });
+      }
+    } else {
+      console.warn("Chart.js is not loaded.");
+      const breakdownEl = document.getElementById('category-breakdown');
+      if (breakdownEl) {
+        breakdownEl.innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Charts are offline (Chart.js failed to load)</div></div>';
+      }
+    }
+  } catch (err) {
+    console.error("Failed to render Chart.js analytics:", err);
+  }
 }
