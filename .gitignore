@@ -48,3 +48,4 @@ secrets.json
 .env
 *.env
 .vscode/launch.json
+dart_defines.json
