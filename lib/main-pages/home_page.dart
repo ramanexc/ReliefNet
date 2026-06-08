@@ -7,6 +7,7 @@ import 'package:reliefnet/main-pages/report_page.dart';
 import 'package:reliefnet/secondary-pages/settings_page.dart';
 import 'package:reliefnet/main-pages/volunteer_page.dart';
 import 'package:reliefnet/main-pages/apply_volunteer_page.dart';
+import 'package:reliefnet/main-pages/heatmap_page.dart';
 import 'package:reliefnet/components/app_bar.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -48,6 +49,7 @@ class _HomepageState extends State<Homepage> {
       const ApplyVolunteerPage(),
       const ProfilePage(),
       const SettingsPage(),
+      const HeatMapPage(),
     ];
     _checkVolunteerStatus();
   }
@@ -101,6 +103,7 @@ class _HomepageState extends State<Homepage> {
       l10n.application_status,
       l10n.profile,
       l10n.settings,
+      "Crisis Heat Map",
     ];
 
     return Scaffold(
@@ -125,6 +128,7 @@ class _HomepageState extends State<Homepage> {
             ),
             _buildTile(Icons.home_outlined, l10n.home, 0, textTheme),
             _buildTile(Icons.report_outlined, l10n.report, 1, textTheme),
+            _buildTile(Icons.map_outlined, "Crisis Heat Map", 7, textTheme),
             if (_isVolunteer) ...[
               _buildTile(Icons.dashboard_outlined, l10n.dashboard, 2, textTheme),
               _buildTile(Icons.help_outline, l10n.volunteer, 3, textTheme),

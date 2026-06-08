@@ -26,6 +26,9 @@ dependencies:
   share_plus: ^7.2.1
   path: ^1.9.0
   file_picker: ^11.0.1
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  flutter_map_heatmap: ^0.0.7
   google_generative_ai: ^0.4.6
   intl: ^0.20.2
   flutter_launcher_icons: ^0.14.4
