@@ -105,7 +105,10 @@ class _HomepageState extends State<Homepage> {
 
     return Scaffold(
       appBar: AppBarComponent(appBarText: pageTitles[selectedindex]),
-      body: _pages[selectedindex],
+      body: IndexedStack(
+        index: selectedindex,
+        children: _pages,
+      ),
       drawer: Drawer(
         width: 240,
         child: Column(

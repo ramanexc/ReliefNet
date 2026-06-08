@@ -20,6 +20,7 @@ dependencies:
   firebase_auth: ^5.4.0
   image_picker: ^1.0.7
   url_launcher: 6.3.2
+  http: ^1.2.0
   google_sign_in: ^6.2.1
   package_info_plus: ^8.0.0
   share_plus: ^7.2.1
