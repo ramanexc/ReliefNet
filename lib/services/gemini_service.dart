@@ -6,7 +6,7 @@ class GeminiService {
   static const _apiKey = String.fromEnvironment('GOOGLE_API_KEY');
   static const _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models';
-  static const _model = 'gemini-1.5-flash';
+  static const _model = 'gemini-3.1-flash-lite';
 
   static Future<String?> _callGemini(String prompt) async {
     if (_apiKey.isEmpty) {
