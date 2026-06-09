@@ -57,7 +57,7 @@ export function renderVolunteers() {
 
   const tbody = document.getElementById('volunteers-body');
   if (paginated.length === 0) {
-    tbody.innerHTML = emptyRow(5, '👥', 'No verified volunteers yet');
+    tbody.innerHTML = emptyRow(5, 'users', 'No verified volunteers yet');
     renderPagination('volunteers-pagination', currentPage, totalPages, 'volunteersPrevPage()', 'volunteersNextPage()');
     return;
   }
@@ -177,7 +177,7 @@ window.openVolunteerProfile = (uid) => {
 
     <!-- ACTIVE ASSIGNMENTS -->
     <div class="modal-section" style="margin-bottom:16px; max-height:200px; overflow-y:auto;">
-      <div class="modal-section-title" style="color:var(--orange)">📋 Active Tasks</div>
+      <div class="modal-section-title" style="color:var(--orange);display:inline-flex;align-items:center;gap:6px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--orange);width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Active Tasks</div>
       ${activeReports.length === 0
         ? `<div style="color:var(--gray-400);font-size:13px;padding:8px 0">No active assignments</div>`
         : activeReports.map(r => `
@@ -193,7 +193,7 @@ window.openVolunteerProfile = (uid) => {
 
     <!-- COMPLETED ASSIGNMENTS -->
     <div class="modal-section" style="max-height:200px; overflow-y:auto;">
-      <div class="modal-section-title" style="color:var(--green)">✅ Resolved Tasks</div>
+      <div class="modal-section-title" style="color:var(--green);display:inline-flex;align-items:center;gap:6px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green);width:14px;height:14px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Resolved Tasks</div>
       ${resolvedReports.length === 0
         ? `<div style="color:var(--gray-400);font-size:13px;padding:8px 0">No resolved tasks yet</div>`
         : resolvedReports.map(r => `
