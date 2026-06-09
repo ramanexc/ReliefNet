@@ -348,19 +348,22 @@ class _DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveCl
                       }
 
                       String localizedIssue = issueType;
-                      if (issueType == 'Food') localizedIssue = l10n.food;
-                      else if (issueType == 'Medical') localizedIssue = l10n.medical;
+                      if (issueType == 'Food') {
+                        localizedIssue = l10n.food;
+                      } else if (issueType == 'Medical') localizedIssue = l10n.medical;
                       else if (issueType == 'Shelter') localizedIssue = l10n.shelter;
                       else if (issueType == 'Other') localizedIssue = l10n.other;
 
                       String localizedUrgency = urgency;
-                      if (urgency == 'High') localizedUrgency = l10n.high;
-                      else if (urgency == 'Medium') localizedUrgency = l10n.medium;
+                      if (urgency == 'High') {
+                        localizedUrgency = l10n.high;
+                      } else if (urgency == 'Medium') localizedUrgency = l10n.medium;
                       else if (urgency == 'Low') localizedUrgency = l10n.low;
 
                       String localizedStatus = status;
-                      if (status == 'unassigned') localizedStatus = l10n.unassigned;
-                      else if (status == 'assigned') localizedStatus = l10n.assigned;
+                      if (status == 'unassigned') {
+                        localizedStatus = l10n.unassigned;
+                      } else if (status == 'assigned') localizedStatus = l10n.assigned;
                       else if (status == 'completed') localizedStatus = l10n.completed;
 
                       return Column(
@@ -465,8 +468,9 @@ class _ReportDetailSheet extends StatelessWidget {
     final aiSummary = data['aiSummary'] as Map<String, dynamic>?;
 
     String localizedStatus = _status;
-    if (_status == 'unassigned') localizedStatus = l10n.unassigned;
-    else if (_status == 'assigned') localizedStatus = l10n.assigned;
+    if (_status == 'unassigned') {
+      localizedStatus = l10n.unassigned;
+    } else if (_status == 'assigned') localizedStatus = l10n.assigned;
     else if (_status == 'completed') localizedStatus = l10n.completed;
 
     return DraggableScrollableSheet(
