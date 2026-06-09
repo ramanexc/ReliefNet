@@ -90,8 +90,11 @@ class _ApplyVolunteerPageState extends State<ApplyVolunteerPage> {
                       value: isSelected,
                       onChanged: (bool? value) {
                         setModalState(() {
-                          if (value == true) _selectedLanguages.add(lang);
-                          else _selectedLanguages.remove(lang);
+                          if (value == true) {
+                            _selectedLanguages.add(lang);
+                          } else {
+                            _selectedLanguages.remove(lang);
+                          }
                         });
                         setState(() {}); // Still need to update parent display but only text
                       },
@@ -133,8 +136,11 @@ class _ApplyVolunteerPageState extends State<ApplyVolunteerPage> {
                       value: isSelected,
                       onChanged: (bool? value) {
                         setModalState(() {
-                          if (value == true) _selectedSkills.add(skill);
-                          else _selectedSkills.remove(skill);
+                          if (value == true) {
+                            _selectedSkills.add(skill);
+                          } else {
+                            _selectedSkills.remove(skill);
+                          }
                         });
                         setState(() {});
                       },
