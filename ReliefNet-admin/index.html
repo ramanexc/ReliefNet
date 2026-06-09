@@ -32,7 +32,9 @@
 <div id="auth-screen">
   <div class="auth-card">
     <div class="auth-logo">
-      <div class="auth-logo-icon">🛰️</div>
+      <div class="auth-logo-icon">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;color:white;"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><path d="M2 12h20"></path></svg>
+      </div>
       <div>
         <span>ReliefNet</span>
         <small>Admin Panel</small>
@@ -67,7 +69,9 @@
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
     <div class="sidebar-logo">
-      <div class="sidebar-logo-icon">🛰️</div>
+      <div class="sidebar-logo-icon">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;color:white;"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"></path><circle cx="12" cy="12" r="1"></circle></svg>
+      </div>
       <div>
         <div class="sidebar-logo-text">ReliefNet</div>
         <div class="sidebar-logo-sub">Admin Panel</div>
@@ -75,23 +79,33 @@
     </div>
     <nav class="sidebar-nav">
       <button class="nav-item active" onclick="showPage('overview', this)" type="button">
-        <span class="nav-icon" aria-hidden="true">📊</span> Overview
+        <span class="nav-icon" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+        </span> Overview
       </button>
       <button class="nav-item" onclick="showPage('reports', this)" type="button">
-        <span class="nav-icon" aria-hidden="true">📋</span> Reports
+        <span class="nav-icon" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        </span> Reports
         <span class="nav-badge" id="reports-badge" style="display:none" aria-label="Active reports count"></span>
       </button>
       <button class="nav-item" onclick="showPage('applications', this)" type="button">
-        <span class="nav-icon" aria-hidden="true">🙋</span> Applications
+        <span class="nav-icon" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6M9 14h6"></path></svg>
+        </span> Applications
         <span class="nav-badge" id="apps-badge" style="display:none" aria-label="Pending applications count"></span>
       </button>
       <button class="nav-item" onclick="showPage('volunteers', this)" type="button">
-        <span class="nav-icon" aria-hidden="true">👥</span> Volunteers
+        <span class="nav-icon" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </span> Volunteers
       </button>
     </nav>
     <div class="sidebar-footer">
       <button class="btn-theme-toggle" onclick="toggleTheme()" type="button" aria-label="Toggle theme">
-        <span class="theme-icon" aria-hidden="true">🌙</span> <span class="theme-text">Dark Mode</span>
+        <span class="theme-icon" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#6366F1"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </span> <span class="theme-text">Dark Mode</span>
       </button>
       <div class="admin-info">
         <div class="admin-avatar" id="admin-avatar" aria-hidden="true">A</div>
@@ -115,36 +129,58 @@
           <span class="sync-dot"></span>
           <span class="sync-text">Live</span>
           <button class="sync-btn" onclick="forceSync()" title="Refresh data">
-            <span class="sync-icon">🔄</span>
+            <span class="sync-icon">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </span>
           </button>
         </div>
       </div>
       <div class="stats-grid">
         <button class="stat-card" onclick="goToReports('all')" type="button">
-          <div class="stat-label">Total Reports</div>
+          <div class="stat-header">
+            <span class="stat-icon-wrapper badge-blue">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </span>
+            <span class="stat-chevron">›</span>
+          </div>
           <div class="stat-value" id="stat-total">—</div>
-          <div class="stat-sub">All time</div>
+          <div class="stat-label">Total Reports</div>
         </button>
         <button class="stat-card" onclick="goToReports('active')" type="button">
-          <div class="stat-label">Active Reports</div>
+          <div class="stat-header">
+            <span class="stat-icon-wrapper badge-red">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </span>
+            <span class="stat-chevron">›</span>
+          </div>
           <div class="stat-value" id="stat-active" style="color:var(--blue)">—</div>
-          <div class="stat-sub">Needs attention</div>
+          <div class="stat-label">Active Reports</div>
         </button>
         <button class="stat-card" onclick="goToReports('completed')" type="button">
-          <div class="stat-label">Resolved</div>
+          <div class="stat-header">
+            <span class="stat-icon-wrapper badge-green">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </span>
+            <span class="stat-chevron">›</span>
+          </div>
           <div class="stat-value" id="stat-resolved" style="color:var(--green)">—</div>
-          <div class="stat-sub">Completed cases</div>
+          <div class="stat-label">Resolved Reports</div>
         </button>
         <button class="stat-card" onclick="goToApps('pending')" type="button">
-          <div class="stat-label">Pending Applications</div>
+          <div class="stat-header">
+            <span class="stat-icon-wrapper badge-orange">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="17" y1="11" x2="23" y2="11"></line></svg>
+            </span>
+            <span class="stat-chevron">›</span>
+          </div>
           <div class="stat-value" id="stat-pending-apps" style="color:var(--orange)">—</div>
-          <div class="stat-sub">Awaiting review</div>
+          <div class="stat-label">Pending Applications</div>
         </button>
       </div>
 
       <!-- MAP SECTION -->
       <div class="card" style="margin-bottom: 24px;">
-        <div class="card-header"><div class="card-title">📍 Active Reports Map</div></div>
+        <div class="card-header"><div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;margin-right:6px;vertical-align:-2px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>Active Reports Map</div></div>
         <div id="overview-map"></div>
       </div>
 
@@ -191,7 +227,9 @@
           <span class="sync-dot"></span>
           <span class="sync-text">Live</span>
           <button class="sync-btn" onclick="forceSync()" title="Refresh data">
-            <span class="sync-icon">🔄</span>
+            <span class="sync-icon">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </span>
           </button>
         </div>
       </div>
@@ -200,12 +238,18 @@
           <div class="card-title">All Reports</div>
           <div class="filter-row">
             <button class="filter-btn active" onclick="filterReports('all', this)">All</button>
-            <button class="filter-btn" onclick="filterReports('active', this)">⏳ Active</button>
-            <button class="filter-btn" onclick="filterReports('High', this)">🔴 High</button>
-            <button class="filter-btn" onclick="filterReports('Medium', this)">🟠 Medium</button>
-            <button class="filter-btn" onclick="filterReports('Low', this)">🟢 Low</button>
-            <button class="filter-btn" onclick="filterReports('completed', this)">✅ Resolved</button>
-            <button class="filter-btn btn-export" onclick="exportReports()" type="button">📥 Export CSV</button>
+            <button class="filter-btn" onclick="filterReports('active', this)">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Active
+            </button>
+            <button class="filter-btn" onclick="filterReports('High', this)"><span class="filter-dot" style="background: var(--red);"></span> High</button>
+            <button class="filter-btn" onclick="filterReports('Medium', this)"><span class="filter-dot" style="background: var(--orange);"></span> Medium</button>
+            <button class="filter-btn" onclick="filterReports('Low', this)"><span class="filter-dot" style="background: var(--green);"></span> Low</button>
+            <button class="filter-btn" onclick="filterReports('completed', this)">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Resolved
+            </button>
+            <button class="filter-btn btn-export" onclick="exportReports()" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export CSV
+            </button>
           </div>
           <div class="search-container">
             <input type="text" id="reports-search" placeholder="Search reports..." oninput="searchReports(this.value)" class="search-input">
@@ -234,7 +278,9 @@
           <span class="sync-dot"></span>
           <span class="sync-text">Live</span>
           <button class="sync-btn" onclick="forceSync()" title="Refresh data">
-            <span class="sync-icon">🔄</span>
+            <span class="sync-icon">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </span>
           </button>
         </div>
       </div>
@@ -243,10 +289,18 @@
           <div class="card-title">Applications</div>
           <div class="filter-row">
             <button class="filter-btn active" onclick="filterApps('all', this)">All</button>
-            <button class="filter-btn" onclick="filterApps('pending', this)">⏳ Pending</button>
-            <button class="filter-btn" onclick="filterApps('approved', this)">✅ Approved</button>
-            <button class="filter-btn" onclick="filterApps('rejected', this)">❌ Rejected</button>
-            <button class="filter-btn btn-export" onclick="exportApps()" type="button">📥 Export CSV</button>
+            <button class="filter-btn" onclick="filterApps('pending', this)">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Pending
+            </button>
+            <button class="filter-btn" onclick="filterApps('approved', this)">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Approved
+            </button>
+            <button class="filter-btn" onclick="filterApps('rejected', this)">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Rejected
+            </button>
+            <button class="filter-btn btn-export" onclick="exportApps()" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export CSV
+            </button>
           </div>
           <div class="search-container">
             <input type="text" id="apps-search" placeholder="Search applications..." oninput="searchApps(this.value)" class="search-input">
@@ -275,7 +329,9 @@
           <span class="sync-dot"></span>
           <span class="sync-text">Live</span>
           <button class="sync-btn" onclick="forceSync()" title="Refresh data">
-            <span class="sync-icon">🔄</span>
+            <span class="sync-icon">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </span>
           </button>
         </div>
       </div>
@@ -283,7 +339,9 @@
         <div class="card-header">
           <div class="card-title">Volunteer List</div>
           <div class="filter-row">
-            <button class="filter-btn btn-export" onclick="exportVolunteers()" type="button">📥 Export CSV</button>
+            <button class="filter-btn btn-export" onclick="exportVolunteers()" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export CSV
+            </button>
           </div>
           <div class="search-container">
             <input type="text" id="volunteers-search" placeholder="Search volunteers..." oninput="searchVolunteers(this.value)" class="search-input">

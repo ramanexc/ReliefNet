@@ -29,7 +29,7 @@ export function renderOverview() {
   const recent = allReports.slice(0, 5);
   const tbody = document.getElementById('overview-reports-body');
   if (recent.length === 0) {
-    tbody.innerHTML = emptyRow(4, '📭', 'No reports yet');
+    tbody.innerHTML = emptyRow(4, 'empty', 'No reports yet');
   } else {
     tbody.innerHTML = recent.map(r => `
       <tr style="cursor:pointer" onclick="window.openReport('${r.id}')">
@@ -53,8 +53,15 @@ export function renderOverview() {
             attribution: '© OpenStreetMap'
           }).addTo(overviewMap);
           markersGroup = L.featureGroup().addTo(overviewMap);
+          
+          // Force Leaflet to recalculate container size on first render
+          setTimeout(() => {
+            if (overviewMap) overviewMap.invalidateSize();
+          }, 200);
         } else {
           markersGroup.clearLayers();
+          // Force layout refresh on updates
+          overviewMap.invalidateSize();
         }
 
         const reportsWithCoords = allReports.filter(r => {
@@ -100,7 +107,7 @@ export function renderOverview() {
       console.warn("Leaflet library L is not loaded.");
       const mapContainer = document.getElementById('overview-map');
       if (mapContainer) {
-        mapContainer.innerHTML = '<div class="empty"><div class="empty-icon">🗺️</div><div class="empty-text">Map is offline (Leaflet failed to load)</div></div>';
+        mapContainer.innerHTML = '<div class="empty"><div class="empty-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;color:var(--gray-400);"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg></div><div class="empty-text">Map is offline (Leaflet failed to load)</div></div>';
       }
     }
   } catch (err) {
@@ -169,7 +176,7 @@ export function renderOverview() {
         chartUrgency = new Chart(ctxUrg, {
           type: 'bar',
           data: {
-            labels: ['🔴 High', '🟠 Medium', '🟢 Low'],
+            labels: ['High', 'Medium', 'Low'],
             datasets: [{
               label: 'Reports',
               data: [urgencyCount.High, urgencyCount.Medium, urgencyCount.Low],
@@ -262,10 +269,28 @@ export function renderOverview() {
       console.warn("Chart.js is not loaded.");
       const breakdownEl = document.getElementById('category-breakdown');
       if (breakdownEl) {
-        breakdownEl.innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Charts are offline (Chart.js failed to load)</div></div>';
+        breakdownEl.innerHTML = '<div class="empty"><div class="empty-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;color:var(--gray-400);"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></div><div class="empty-text">Charts are offline (Chart.js failed to load)</div></div>';
       }
     }
   } catch (err) {
     console.error("Failed to render Chart.js analytics:", err);
   }
 }
+
+// ─── LEAFLET FIX FOR DISPLAY TILE BUGS ───────────────────────
+export function invalidateOverviewMap() {
+  if (overviewMap) {
+    overviewMap.invalidateSize();
+    setTimeout(() => {
+      if (overviewMap) {
+        overviewMap.invalidateSize();
+        if (markersGroup && markersGroup.getLayers().length > 0) {
+          try {
+            overviewMap.fitBounds(markersGroup.getBounds(), { padding: [40, 40] });
+          } catch (_) {}
+        }
+      }
+    }, 150);
+  }
+}
+

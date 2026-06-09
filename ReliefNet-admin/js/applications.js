@@ -80,7 +80,7 @@ export function renderApps() {
 
   const tbody = document.getElementById('apps-body');
   if (paginated.length === 0) {
-    tbody.innerHTML = emptyRow(6, '📭', 'No applications found');
+    tbody.innerHTML = emptyRow(6, 'empty', 'No applications found');
     renderPagination('apps-pagination', currentPage, totalPages, 'appsPrevPage()', 'appsNextPage()');
     return;
   }
@@ -176,20 +176,20 @@ function renderAppModalContent(a) {
     <div style="display:flex;flex-direction:column;gap:16px">
       <!-- Applicant Info -->
       <div class="modal-section">
-        <div class="modal-section-title">👤 Applicant Email</div>
+        <div class="modal-section-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> Applicant Email</div>
         <div style="font-size:15px;font-weight:600;">${esc(a.email)}</div>
         <div style="font-size:12px;color:var(--gray-400);margin-top:4px">Applied: ${formatTime(a.appliedAt)}</div>
       </div>
 
       <!-- Skills -->
       <div class="modal-section">
-        <div class="modal-section-title">🛠️ Skills & Experience</div>
+        <div class="modal-section-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Skills & Experience</div>
         <div style="font-size:13px;color:var(--gray-700);line-height:1.5">${esc(a.skills)}</div>
       </div>
 
       <!-- Reason -->
       <div class="modal-section">
-        <div class="modal-section-title">📝 Reason for Applying</div>
+        <div class="modal-section-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Reason for Applying</div>
         <div style="font-size:13px;color:var(--gray-700);line-height:1.6;white-space:pre-wrap;">${esc(a.reason)}</div>
       </div>
 
@@ -207,8 +207,8 @@ function renderAppModalContent(a) {
         ` : `
           <div style="font-size:13px;color:var(--gray-700);margin-bottom:12px;">This application is awaiting review.</div>
           <div style="display:flex;gap:8px;">
-            <button class="action-btn btn-approve" id="modal-approve-btn" onclick="approveApp('${a.id}', '${a.uid || a.id}')" style="padding:10px 16px;font-size:13px;">✅ Approve Application</button>
-            <button class="action-btn btn-reject" id="modal-reject-btn" onclick="rejectApp('${a.id}')" style="padding:10px 16px;font-size:13px;">❌ Reject Application</button>
+            <button class="action-btn btn-approve" id="modal-approve-btn" onclick="approveApp('${a.id}', '${a.uid || a.id}')" style="padding:10px 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Approve Application</button>
+            <button class="action-btn btn-reject" id="modal-reject-btn" onclick="rejectApp('${a.id}')" style="padding:10px 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Reject Application</button>
           </div>
         `}
       </div>
@@ -255,7 +255,7 @@ window.approveApp = async (appId, userId) => {
   const volunteerId = String(Number(BigInt(arr[0]) * 1000000n + BigInt(arr[1])) % 1000000000000).padStart(12, '0');
   
   const btn = document.getElementById('modal-approve-btn'); 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Approving...'; }
   
   try {
     await updateDoc(doc(db, 'volunteer_applications', appId), {
@@ -272,16 +272,16 @@ window.approveApp = async (appId, userId) => {
       await updateDoc(doc(db, 'users', userId), { isVolunteer: true, volunteerId });
     } catch (err) {
       console.warn('Could not update user doc:', err);
-      showToast('⚠️ Approved, but user profile update failed. User ID may differ.');
+      showToast('Approved, but user profile update failed. User ID may differ.');
     }
 
     const a = allApps.find(x => x.id === appId);
     if (a) { a.status = 'approved'; a.volunteerId = volunteerId; }
     renderApps();
-    showToast(`✅ Approved! Volunteer ID: ${volunteerId}`);
+    showToast(`Approved! Volunteer ID: ${volunteerId}`);
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = '✅ Approve Application'; }
-    showToast('❌ Error: ' + e.message);
+    if (btn) { btn.disabled = false; btn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Approve Application`; }
+    showToast('Error: ' + e.message);
   }
 };
 
@@ -289,7 +289,7 @@ window.rejectApp = async (appId) => {
   if (!confirm('Reject this application? This action cannot be undone.')) return;
   
   const btn = document.getElementById('modal-reject-btn'); 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Rejecting...'; }
   
   try {
     await updateDoc(doc(db, 'volunteer_applications', appId), { status: 'rejected' });
@@ -302,7 +302,7 @@ window.rejectApp = async (appId) => {
     renderApps();
     showToast('Application rejected');
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = '❌ Reject Application'; }
-    showToast('❌ Error: ' + e.message);
+    if (btn) { btn.disabled = false; btn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Reject Application`; }
+    showToast('Error: ' + e.message);
   }
 };
