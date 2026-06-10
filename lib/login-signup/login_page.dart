@@ -68,8 +68,9 @@ class _LoginPageState extends State<LoginPage> {
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         String msg = "An error occurred. Please try again.";
-        if (e.code == 'user-not-found') msg = "No user found for that email.";
-        else if (e.code == 'wrong-password' || e.code == 'invalid-credential') msg = "Wrong password provided.";
+        if (e.code == 'user-not-found') {
+          msg = "No user found for that email.";
+        } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') msg = "Wrong password provided.";
         _showError(msg);
       }
     } catch (e) {

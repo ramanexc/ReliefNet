@@ -375,8 +375,9 @@ class _DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveCl
                       else if (urgency == 'Low') localizedUrgency = l10n.low;
 
                       String localizedStatus = status;
-                      if (status == 'unassigned') localizedStatus = l10n.unassigned;
-                      else if (status == 'assigned') localizedStatus = l10n.assigned;
+                      if (status == 'unassigned') {
+                        localizedStatus = l10n.unassigned;
+                      } else if (status == 'assigned') localizedStatus = l10n.assigned;
                       else if (status == 'completed') localizedStatus = l10n.completed;
 
                       // Skill matching logic

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:reliefnet/main-pages/apply_volunteer_page.dart';
 import 'package:reliefnet/main-pages/dashboard_page.dart';
 import 'package:reliefnet/main-pages/home_page.dart';
@@ -16,6 +17,7 @@ import 'package:reliefnet/themes/theme_provider.dart';
 import 'package:reliefnet/themes/locale_provider.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
 import 'package:reliefnet/widgets/mahi_ai_assistant.dart';
+import 'package:reliefnet/onboarding/onboarding_screen.dart';
 
 Future<void> main() async {
   // Ensure native bindings are ready
@@ -30,6 +32,10 @@ Future<void> main() async {
   //   appleProvider: AppleProvider.deviceCheck,
   // );
 
+  // Check if onboarding has been completed
+  final prefs = await SharedPreferences.getInstance();
+  final bool onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+
   // Create the provider instances
   final themeProvider = ThemeProvider();
   final localeProvider = LocaleProvider();
@@ -40,13 +46,14 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => themeProvider),
         ChangeNotifierProvider(create: (_) => localeProvider),
       ],
-      child: const MyApp(),
+      child: MyApp(showOnboarding: !onboardingComplete),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool showOnboarding;
+  const MyApp({super.key, required this.showOnboarding});
 
   @override
   Widget build(BuildContext context) {
@@ -63,11 +70,11 @@ class MyApp extends StatelessWidget {
       /// THEMES
       theme: lightmode,
       darkTheme: darkmode,
-      // Always use the themeMode from the provider
       themeMode: themeProvider.themeMode,
 
       /// ROUTES
       routes: {
+        '/auth': (context) => const AuthWrapper(),
         '/home': (context) => const Homepage(),
         '/report': (context) => const ReportPage(),
         '/dashboard': (context) => const DashboardPage(),
@@ -75,12 +82,13 @@ class MyApp extends StatelessWidget {
         '/apply_volunteer': (context) => const ApplyVolunteerPage(),
       },
 
-      /// AUTH HANDLER
-      home: const AuthWrapper(),
+      /// HOME — onboarding on first launch, auth otherwise
+      home: showOnboarding ? const OnboardingScreen() : const AuthWrapper(),
+
       builder: (context, child) {
         return Stack(
           children: [
-            if (child != null) child,
+            ?child,
             const _MahiAssistantWrapper(),
           ],
         );
@@ -98,15 +106,28 @@ class _MahiAssistantWrapper extends StatefulWidget {
 
 class _MahiAssistantWrapperState extends State<_MahiAssistantWrapper> {
   late Stream<User?> _authStream;
+  bool _onboardingComplete = false;
 
   @override
   void initState() {
     super.initState();
     _authStream = FirebaseAuth.instance.authStateChanges();
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_onboardingComplete) return const SizedBox.shrink();
+
     return StreamBuilder<User?>(
       stream: _authStream,
       builder: (context, snapshot) {

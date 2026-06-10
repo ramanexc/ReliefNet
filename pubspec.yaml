@@ -33,6 +33,7 @@ dependencies:
   intl: ^0.20.2
   flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.2.11
+  lottie: ^3.1.0
   flutter_localizations:
     sdk: flutter
 
@@ -51,6 +52,7 @@ flutter:
   assets:
     - assets/images/logo.png
     - assets/images/google.png
+    - assets/lottie/
 
   fonts:
     - family: Poppins
