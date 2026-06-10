@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:reliefnet/login-signup/signup_page.dart';
+import 'package:reliefnet/login-signup/otp_page.dart';
+import 'package:reliefnet/login-signup/otp_test_page.dart';
+import 'package:reliefnet/services/auth_service.dart';
+import 'package:reliefnet/components/phone_formatter.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
 import 'package:reliefnet/main-pages/report_page.dart';
 
@@ -16,23 +19,25 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   bool _isLoading = false;
   bool _obscure = true;
+  bool _isEmailMode = true; // Toggle between email and phone
+  final _authService = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneController.text = "+91 ";
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _phoneController.dispose();
     super.dispose();
-  }
-
-  bool _validatePassword(AppLocalizations l10n) {
-    if (_passwordController.text.length < 8) {
-      _showError("Password must be at least 8 characters long."); // Could localize this too if needed
-      return false;
-    }
-    return true;
   }
 
   void _showError(String msg) {
@@ -49,21 +54,22 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> _signIn(AppLocalizations l10n) async {
-    if (!_validatePassword(l10n)) return;
+  Future<void> _signInWithEmail() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      _showError("Please fill in all fields.");
+      return;
+    }
     setState(() => _isLoading = true);
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      await _authService.signInWithEmail(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
       );
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         String msg = "An error occurred. Please try again.";
-        if (e.code == 'user-not-found') {
-          msg = "No user found for that email.";
-        } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') msg = "Wrong password provided.";
-        else if (e.code == 'invalid-email') msg = "The email address is badly formatted.";
+        if (e.code == 'user-not-found') msg = "No user found for that email.";
+        else if (e.code == 'wrong-password' || e.code == 'invalid-credential') msg = "Wrong password provided.";
         _showError(msg);
       }
     } catch (e) {
@@ -73,43 +79,39 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _signInWithGoogle() async {
+  Future<void> _sendOTP() async {
+    // Strip all spaces and non-digits except the leading plus
+    final rawPhone = _phoneController.text;
+    final phone = rawPhone.replaceAll(RegExp(r'[^0-9+]'), '');
+    
+    print("DEBUG: Sending OTP to formatted number: $phone");
+
+    if (phone.isEmpty || !phone.startsWith('+') || phone.length < 10) {
+      _showError("Enter a valid phone number with country code (e.g. +91...)");
+      return;
+    }
+
+    setState(() => _isLoading = true);
     try {
-      setState(() => _isLoading = true);
-      final googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) {
-        setState(() => _isLoading = false);
-        return;
-      }
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+      await _authService.verifyPhoneNumber(
+        phone,
+        onCodeSent: (verificationId, resendToken) {
+          setState(() => _isLoading = false);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OTPPage(verificationId: verificationId, phoneNumber: phone),
+            ),
+          );
+        },
+        onFailed: (e) {
+          setState(() => _isLoading = false);
+          _showError(e.message ?? "Phone verification failed.");
+        },
       );
-      final result = await FirebaseAuth.instance.signInWithCredential(credential);
-      if (result.user == null) throw Exception("Firebase user is null");
-
-      if (result.additionalUserInfo?.isNewUser == true) {
-        final user = result.user!;
-        final baseName = (user.displayName ?? 'user').toLowerCase().replaceAll(' ', '_');
-        final username = '${baseName}_${user.uid.substring(0, 4)}';
-
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'name': user.displayName ?? '',
-          'username': username,
-          'phone': user.phoneNumber ?? '',
-          'email': user.email ?? '',
-          'isVolunteer': false,
-          'volunteerId': '',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
     } catch (e) {
-      if (FirebaseAuth.instance.currentUser == null) {
-        _showError("Google sign-in failed. Please try again.");
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
+      _showError("An unexpected error occurred.");
     }
   }
 
@@ -137,7 +139,7 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 52, 24, 40),
+                padding: const EdgeInsets.fromLTRB(24, 40, 24, 30),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [colorScheme.primary, colorScheme.secondary],
@@ -148,19 +150,15 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Image.asset("assets/images/logo.png", height: 56),
-                    const SizedBox(height: 20),
+                    Image.asset("assets/images/logo.png", height: 48),
+                    const SizedBox(height: 16),
                     Text(
                       l10n.welcome_back,
-                      style: textTheme.bodyLarge?.copyWith(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: textTheme.bodyLarge?.copyWith(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      l10n.sign_in_desc,
+                      _isEmailMode ? "Sign in to your account" : "Sign in with your phone number",
                       style: textTheme.bodyMedium?.copyWith(color: Colors.white70),
                     ),
                   ],
@@ -168,38 +166,58 @@ class _LoginPageState extends State<LoginPage> {
               ),
 
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l10n.email, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      style: textTheme.bodyMedium,
-                      decoration: const InputDecoration(
-                        hintText: "your@email.com",
-                        prefixIcon: Icon(Icons.email_outlined),
+                    // Mode Toggle
+                    Container(
+                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        children: [
+                          Expanded(child: _modeButton(true, "Email")),
+                          Expanded(child: _modeButton(false, "Phone")),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 32),
 
-                    Text(l10n.password, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscure,
-                      style: textTheme.bodyMedium,
-                      decoration: InputDecoration(
-                        hintText: "Min. 8 characters",
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
+                    if (_isEmailMode) ...[
+                      _buildTextField(
+                        controller: _emailController,
+                        label: l10n.email,
+                        hint: "your@email.com",
+                        icon: Icons.email_outlined,
+                        type: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildTextField(
+                        controller: _passwordController,
+                        label: l10n.password,
+                        hint: "Min. 8 characters",
+                        icon: Icons.lock_outline,
+                        obscure: _obscure,
+                        suffix: IconButton(
                           icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                           onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                       ),
-                    ),
+                    ] else ...[
+                      _buildTextField(
+                        controller: _phoneController,
+                        label: "Phone Number",
+                        hint: "+91 70655 58444",
+                        icon: Icons.phone_outlined,
+                        type: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
+                          IndiaPhoneFormatter(),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text("We'll send a 6-digit code to verify your number.", style: textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                    ],
+
                     const SizedBox(height: 32),
 
                     SizedBox(
@@ -207,97 +225,63 @@ class _LoginPageState extends State<LoginPage> {
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: _isLoading ? null : () => _signIn(l10n),
+                        onPressed: _isLoading ? null : (_isEmailMode ? _signInWithEmail : _sendOTP),
                         child: _isLoading
-                            ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                            : Text(l10n.sign_in, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : Text(_isEmailMode ? l10n.sign_in : "Send OTP", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
-                    const SizedBox(height: 20),
 
-                    Row(
-                      children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(l10n.or, style: textTheme.bodySmall),
-                        ),
-                        const Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        onPressed: _isLoading ? null : _signInWithGoogle,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset("assets/images/google.png", height: 20),
-                            const SizedBox(width: 12),
-                            Text(l10n.continue_with_google, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-
-                    Center(
-                      child: GestureDetector(
-                        onTap: _goToSignup,
-                        child: RichText(
-                          text: TextSpan(
-                            style: textTheme.bodyMedium,
-                            children: [
-                              TextSpan(text: l10n.dont_have_account),
-                              TextSpan(
-                                text: l10n.sign_up,
-                                style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                    if (_isEmailMode) ...[
+                      const SizedBox(height: 20),
+                      Center(
+                        child: GestureDetector(
+                          onTap: _goToSignup,
+                          child: RichText(
+                            text: TextSpan(
+                              style: textTheme.bodyMedium,
+                              children: [
+                                TextSpan(text: l10n.dont_have_account),
+                                TextSpan(
+                                  text: l10n.sign_up,
+                                  style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 40),
                     const Divider(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
 
                     // Emergency Report Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade700,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Scaffold(
-                                appBar: AppBar(title: const Text("Emergency Report")),
-                                body: const ReportPage(),
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.emergency_share),
-                        label: const Text(
-                          "Emergency? Report Now",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.red.shade300),
+                        foregroundColor: Colors.red.shade700,
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => Scaffold(appBar: AppBar(title: const Text("Emergency Report")), body: const ReportPage())));
+                      },
+                      icon: const Icon(Icons.emergency_share),
+                      label: const Text("Report Emergency Anonymously", style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+
+                    const SizedBox(height: 20),
+                    // Configuration Audit Tool
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const OTPTestPage()));
+                      },
+                      icon: const Icon(Icons.bug_report_outlined, size: 16),
+                      label: const Text("Audit Auth Configuration", style: TextStyle(fontSize: 12, color: Colors.grey)),
                     ),
                   ],
                 ),
@@ -306,6 +290,60 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _modeButton(bool mode, String label) {
+    final isSelected = _isEmailMode == mode;
+    return GestureDetector(
+      onTap: () => setState(() => _isEmailMode = mode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] : null,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? Theme.of(context).primaryColor : Colors.grey,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    bool obscure = false,
+    Widget? suffix,
+    TextInputType type = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          obscureText: obscure,
+          keyboardType: type,
+          inputFormatters: inputFormatters,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon, size: 20),
+            suffixIcon: suffix,
+          ),
+        ),
+      ],
     );
   }
 }

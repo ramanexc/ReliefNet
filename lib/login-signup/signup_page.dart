@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:reliefnet/components/phone_formatter.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
 
 class SignupPage extends StatefulWidget {
@@ -22,6 +24,12 @@ class _SignupPageState extends State<SignupPage> {
   bool _isLoading = false;
   bool _obscure1 = true;
   bool _obscure2 = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneController.text = "+91 ";
+  }
 
   @override
   void dispose() {
@@ -148,10 +156,18 @@ class _SignupPageState extends State<SignupPage> {
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         style: textTheme.bodyMedium,
-                        decoration: const InputDecoration(hintText: "+91 98765 43210", prefixIcon: Icon(Icons.phone_outlined)),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
+                          IndiaPhoneFormatter(),
+                        ],
+                        decoration: const InputDecoration(
+                          hintText: "+91 70655 58444",
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return "Phone number is required";
-                          if (!RegExp(r'^\+?[0-9]{10,13}$').hasMatch(v.trim())) return "Enter a valid phone number (10–13 digits)";
+                          if (v == null || v.trim().isEmpty || v.trim() == "+91") return "Phone number is required";
+                          final digits = v.replaceAll(RegExp(r'[^\d]'), '');
+                          if (digits.length != 12) return "Enter a valid 10-digit number";
                           return null;
                         },
                       ),

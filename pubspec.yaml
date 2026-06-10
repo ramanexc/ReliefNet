@@ -9,7 +9,7 @@ environment:
 
 dependencies:
   provider: ^6.1.2
-  shared_preferences: ^2.3.3
+  shared_preferences: ^2.5.2
   geolocator: ^10.1.0
   geocoding: ^3.0.0
   permission_handler: ^11.3.0
@@ -18,12 +18,12 @@ dependencies:
   firebase_app_check: ^0.3.2+10
   firebase_storage: ^12.4.0
   firebase_auth: ^5.4.0
-  image_picker: ^1.0.7
-  url_launcher: 6.3.2
+  image_picker: ^1.1.2
+  url_launcher: ^6.3.2
   http: ^1.2.0
   google_sign_in: ^6.2.1
-  package_info_plus: ^8.0.0
-  share_plus: ^7.2.1
+  package_info_plus: ^8.3.1
+  share_plus: ^10.1.4
   path: ^1.9.0
   file_picker: ^11.0.1
   flutter_map: ^6.1.0

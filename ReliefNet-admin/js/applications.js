@@ -269,7 +269,11 @@ window.approveApp = async (appId, userId) => {
 
     // Also update the user document
     try {
-      await updateDoc(doc(db, 'users', userId), { isVolunteer: true, volunteerId });
+      await updateDoc(doc(db, 'users', userId), {
+        isVolunteer: true,
+        volunteerId,
+        skills: a.skills || [] // Move skills to user profile
+      });
     } catch (err) {
       console.warn('Could not update user doc:', err);
       showToast('Approved, but user profile update failed. User ID may differ.');

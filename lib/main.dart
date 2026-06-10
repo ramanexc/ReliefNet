@@ -24,11 +24,11 @@ Future<void> main() async {
   // Initialize Firebase
   await Firebase.initializeApp();
 
-  // Initialize App Check
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-    appleProvider: AppleProvider.deviceCheck,
-  );
+  // TEMPORARILY DISABLED APP CHECK TO FIX PHONE AUTH HANGING
+  // await FirebaseAppCheck.instance.activate(
+  //   androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+  //   appleProvider: AppleProvider.deviceCheck,
+  // );
 
   // Create the provider instances
   final themeProvider = ThemeProvider();
@@ -80,7 +80,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return Stack(
           children: [
-            ?child,
+            if (child != null) child,
             const _MahiAssistantWrapper(),
           ],
         );
