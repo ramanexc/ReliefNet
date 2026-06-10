@@ -18,3 +18,4 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RELIEFNET_EB5F2 }}
           channelId: live
           projectId: reliefnet-eb5f2
+          entryPoint: ./ReliefNet-admin

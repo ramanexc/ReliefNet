@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:reliefnet/themes/theme_provider.dart';
 import 'package:reliefnet/themes/locale_provider.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
+import 'package:reliefnet/onboarding/onboarding_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -52,10 +53,7 @@ class _SettingsPageState extends State<SettingsPage>
   // ── Loaders ───────────────────────────────────────────────────────────────
 
   Future<void> _loadAll() async {
-    await Future.wait([
-      _loadNotifPrefs(),
-      _loadAppVersion(),
-    ]);
+    await Future.wait([_loadNotifPrefs(), _loadAppVersion()]);
     if (mounted) {
       setState(() => _isLoading = false);
       _fadeCtrl.forward();
@@ -253,250 +251,249 @@ class _SettingsPageState extends State<SettingsPage>
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
         children: [
-        // ── Emergency Hotlines ──────────────────────────────────────────
-        _SectionLabel(label: l10n.emergency_hotlines),
-        const SizedBox(height: 10),
-        _SettingsCard(
-          children: [
-            _TapTile(
-              icon: Icons.local_police_outlined,
-              iconColor: Colors.blue.shade800,
-              label: l10n.police,
-              subtitle: '100',
-              onTap: () => _makeCall('100'),
-            ),
-            _TapTile(
-              icon: Icons.medical_services_outlined,
-              iconColor: Colors.red.shade700,
-              label: l10n.ambulance,
-              subtitle: '102',
-              onTap: () => _makeCall('102'),
-            ),
-            _TapTile(
-              icon: Icons.local_fire_department_outlined,
-              iconColor: Colors.orange.shade800,
-              label: l10n.fire_brigade,
-              subtitle: '101',
-              onTap: () => _makeCall('101'),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 24),
-
-        // ── Appearance ─────────────────────────────────────────────────
-        _SectionLabel(label: l10n.appearance),
-        const SizedBox(height: 10),
-        _SettingsCard(
-          children: [
-            _SwitchTile(
-              icon: isDark
-                  ? Icons.dark_mode_outlined
-                  : Icons.light_mode_outlined,
-              iconColor: const Color(0xFF6366F1),
-              label: l10n.dark_mode,
-              subtitle: isDark ? 'Currently dark' : 'Currently light',
-              value: isDark,
-              onChanged: (_) => onThemeToggle(),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 24),
-
-        // ── Notifications ───────────────────────────────────────────────
-        _SectionLabel(label: l10n.notifications),
-        const SizedBox(height: 10),
-        _SettingsCard(
-          children: [
-            _SwitchTile(
-              icon: Icons.fiber_new_outlined,
-              iconColor: const Color(0xFF22C55E),
-              label: l10n.new_reports,
-              subtitle: 'Alert when a new report\nis filed',
-              value: _notifyNewReports,
-              loading: _savingNotifs,
-              onChanged: (v) {
-                setState(() => _notifyNewReports = v);
-                _saveNotifPref('newReports', v);
-              },
-            ),
-            _SwitchTile(
-              icon: Icons.handshake_outlined,
-              iconColor: const Color(0xFFF59E0B),
-              label: l10n.task_assigned,
-              subtitle: 'Alert when a task is\nassigned to you',
-              value: _notifyTaskAssigned,
-              loading: _savingNotifs,
-              onChanged: (v) {
-                setState(() => _notifyTaskAssigned = v);
-                _saveNotifPref('taskAssigned', v);
-              },
-            ),
-            _SwitchTile(
-              icon: Icons.check_circle_outline,
-              iconColor: const Color(0xFF22C55E),
-              label: l10n.task_completed,
-              subtitle: 'Alert when a task you\nfiled is resolved',
-              value: _notifyTaskCompleted,
-              loading: _savingNotifs,
-              onChanged: (v) {
-                setState(() => _notifyTaskCompleted = v);
-                _saveNotifPref('taskCompleted', v);
-              },
-            ),
-            _SwitchTile(
-              icon: Icons.priority_high_rounded,
-              iconColor: const Color(0xFFEF4444),
-              label: l10n.urgent_only,
-              subtitle: 'Only notify for High\nurgency reports',
-              value: _notifyUrgentOnly,
-              loading: _savingNotifs,
-              onChanged: (v) {
-                setState(() => _notifyUrgentOnly = v);
-                _saveNotifPref('urgentOnly', v);
-              },
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 24),
-
-        // ── Language / Region ───────────────────────────────────────────
-        _SectionLabel(label: l10n.language_region),
-        const SizedBox(height: 10),
-        _SettingsCard(
-          children: [
-            _TapTile(
-              icon: Icons.language_outlined,
-              iconColor: const Color(0xFF06B6D4),
-              label: l10n.language,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    currentLangName,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: Theme.of(context).textTheme.bodySmall?.color,
-                  ),
-                ],
+          // ── Emergency Hotlines ──────────────────────────────────────────
+          _SectionLabel(label: l10n.emergency_hotlines),
+          const SizedBox(height: 10),
+          _SettingsCard(
+            children: [
+              _TapTile(
+                icon: Icons.local_police_outlined,
+                iconColor: Colors.blue.shade800,
+                label: l10n.police,
+                subtitle: '100',
+                onTap: () => _makeCall('100'),
               ),
-              onTap: () => _showLanguagePicker(localeProvider, l10n),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 24),
-
-        // ── Privacy & Data ──────────────────────────────────────────────
-        _SectionLabel(label: l10n.privacy_data),
-        const SizedBox(height: 10),
-        _SettingsCard(
-          children: [
-            _TapTile(
-              icon: Icons.policy_outlined,
-              iconColor: const Color(0xFF8B5CF6),
-              label: l10n.privacy_policy,
-              onTap: _showPrivacyPolicy,
-            ),
-            _TapTile(
-              icon: Icons.cleaning_services_outlined,
-              iconColor: const Color(0xFF6366F1),
-              label: l10n.clear_cache,
-              subtitle: 'Free up local storage',
-              onTap: _clearCache,
-            ),
-            _TapTile(
-              icon: Icons.delete_forever_outlined,
-              iconColor: Colors.red,
-              label: l10n.delete_account,
-              subtitle: 'Permanently remove your data',
-              labelColor: Colors.red,
-              onTap: _showDeleteAccountDialog,
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 24),
-
-        // ── Help & Feedback ─────────────────────────────────────────────
-        _SectionLabel(label: l10n.help_feedback),
-        const SizedBox(height: 10),
-        _SettingsCard(
-          children: [
-            _TapTile(
-              icon: Icons.mail_outline_rounded,
-              iconColor: const Color(0xFFF59E0B),
-              label: l10n.send_feedback,
-              subtitle: 'support@reliefnet.app',
-              onTap: _openFeedbackEmail,
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 24),
-
-        // ── About ───────────────────────────────────────────────────────
-        _SectionLabel(label: l10n.about),
-        const SizedBox(height: 10),
-        _SettingsCard(
-          children: [
-            _TapTile(
-              icon: Icons.info_outline_rounded,
-              iconColor: const Color(0xFF06B6D4),
-              label: l10n.app_version,
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'v$_appVersion',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
+              _TapTile(
+                icon: Icons.medical_services_outlined,
+                iconColor: Colors.red.shade700,
+                label: l10n.ambulance,
+                subtitle: '102',
+                onTap: () => _makeCall('102'),
               ),
-              onTap: null,
-            ),
-            _TapTile(
-              icon: Icons.favorite_outline_rounded,
-              iconColor: Colors.red,
-              label: l10n.built_for_gsc,
-              onTap: () => _showProjectDetails(context),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 32),
-
-        // ── Footer ──────────────────────────────────────────────────────
-        Center(
-          child: Text(
-            'ReliefNet v$_appVersion · Made with ❤️ for communities',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(fontSize: 11),
-            textAlign: TextAlign.center,
+              _TapTile(
+                icon: Icons.local_fire_department_outlined,
+                iconColor: Colors.orange.shade800,
+                label: l10n.fire_brigade,
+                subtitle: '101',
+                onTap: () => _makeCall('101'),
+              ),
+            ],
           ),
-        ),
-      ],
-    ),
-  );
-}
+
+          const SizedBox(height: 24),
+
+          // ── Appearance ─────────────────────────────────────────────────
+          _SectionLabel(label: l10n.appearance),
+          const SizedBox(height: 10),
+          _SettingsCard(
+            children: [
+              _SwitchTile(
+                icon: isDark
+                    ? Icons.dark_mode_outlined
+                    : Icons.light_mode_outlined,
+                iconColor: const Color(0xFF6366F1),
+                label: l10n.dark_mode,
+                subtitle: isDark ? 'Currently dark' : 'Currently light',
+                value: isDark,
+                onChanged: (_) => onThemeToggle(),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Notifications ───────────────────────────────────────────────
+          _SectionLabel(label: l10n.notifications),
+          const SizedBox(height: 10),
+          _SettingsCard(
+            children: [
+              _SwitchTile(
+                icon: Icons.fiber_new_outlined,
+                iconColor: const Color(0xFF22C55E),
+                label: l10n.new_reports,
+                subtitle: 'Alert when a new report\nis filed',
+                value: _notifyNewReports,
+                loading: _savingNotifs,
+                onChanged: (v) {
+                  setState(() => _notifyNewReports = v);
+                  _saveNotifPref('newReports', v);
+                },
+              ),
+              _SwitchTile(
+                icon: Icons.handshake_outlined,
+                iconColor: const Color(0xFFF59E0B),
+                label: l10n.task_assigned,
+                subtitle: 'Alert when a task is\nassigned to you',
+                value: _notifyTaskAssigned,
+                loading: _savingNotifs,
+                onChanged: (v) {
+                  setState(() => _notifyTaskAssigned = v);
+                  _saveNotifPref('taskAssigned', v);
+                },
+              ),
+              _SwitchTile(
+                icon: Icons.check_circle_outline,
+                iconColor: const Color(0xFF22C55E),
+                label: l10n.task_completed,
+                subtitle: 'Alert when a task you\nfiled is resolved',
+                value: _notifyTaskCompleted,
+                loading: _savingNotifs,
+                onChanged: (v) {
+                  setState(() => _notifyTaskCompleted = v);
+                  _saveNotifPref('taskCompleted', v);
+                },
+              ),
+              _SwitchTile(
+                icon: Icons.priority_high_rounded,
+                iconColor: const Color(0xFFEF4444),
+                label: l10n.urgent_only,
+                subtitle: 'Only notify for High\nurgency reports',
+                value: _notifyUrgentOnly,
+                loading: _savingNotifs,
+                onChanged: (v) {
+                  setState(() => _notifyUrgentOnly = v);
+                  _saveNotifPref('urgentOnly', v);
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Language / Region ───────────────────────────────────────────
+          _SectionLabel(label: l10n.language_region),
+          const SizedBox(height: 10),
+          _SettingsCard(
+            children: [
+              _TapTile(
+                icon: Icons.language_outlined,
+                iconColor: const Color(0xFF06B6D4),
+                label: l10n.language,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      currentLangName,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    ),
+                  ],
+                ),
+                onTap: () => _showLanguagePicker(localeProvider, l10n),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Privacy & Data ──────────────────────────────────────────────
+          _SectionLabel(label: l10n.privacy_data),
+          const SizedBox(height: 10),
+          _SettingsCard(
+            children: [
+              _TapTile(
+                icon: Icons.policy_outlined,
+                iconColor: const Color(0xFF8B5CF6),
+                label: l10n.privacy_policy,
+                onTap: _showPrivacyPolicy,
+              ),
+              _TapTile(
+                icon: Icons.cleaning_services_outlined,
+                iconColor: const Color(0xFF6366F1),
+                label: l10n.clear_cache,
+                subtitle: 'Free up local storage',
+                onTap: _clearCache,
+              ),
+              _TapTile(
+                icon: Icons.delete_forever_outlined,
+                iconColor: Colors.red,
+                label: l10n.delete_account,
+                subtitle: 'Permanently remove your data',
+                labelColor: Colors.red,
+                onTap: _showDeleteAccountDialog,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Help & Feedback ─────────────────────────────────────────────
+          _SectionLabel(label: l10n.help_feedback),
+          const SizedBox(height: 10),
+          _SettingsCard(
+            children: [
+              _TapTile(
+                icon: Icons.mail_outline_rounded,
+                iconColor: const Color(0xFFF59E0B),
+                label: l10n.send_feedback,
+                subtitle: 'support@reliefnet.app',
+                onTap: _openFeedbackEmail,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+          // ── About ───────────────────────────────────────────────────────
+          _SectionLabel(label: l10n.about),
+          const SizedBox(height: 10),
+          _SettingsCard(
+            children: [
+              _TapTile(
+                icon: Icons.info_outline_rounded,
+                iconColor: const Color(0xFF06B6D4),
+                label: l10n.app_version,
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'v$_appVersion',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+                onTap: null,
+              ),
+              _TapTile(
+                icon: Icons.favorite_outline_rounded,
+                iconColor: Colors.red,
+                label: l10n.built_for_gsc,
+                onTap: () => _showProjectDetails(context),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+
+          // ── Footer ──────────────────────────────────────────────────────
+          Center(
+            child: Text(
+              'ReliefNet v$_appVersion · Made with ❤️ for communities',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _showLanguagePicker(LocaleProvider provider, AppLocalizations l10n) {
     showModalBottomSheet(
@@ -540,7 +537,12 @@ class _SettingsPageState extends State<SettingsPage>
     );
   }
 
-  Widget _langTile(BuildContext ctx, LocaleProvider provider, String name, Locale locale) {
+  Widget _langTile(
+    BuildContext ctx,
+    LocaleProvider provider,
+    String name,
+    Locale locale,
+  ) {
     final theme = Theme.of(ctx);
     final isSelected = provider.locale.languageCode == locale.languageCode;
     return ListTile(
@@ -856,7 +858,7 @@ class _SwitchTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return StatefulBuilder(
       builder: (context, setLocalState) {
         return Padding(
@@ -876,14 +878,28 @@ class _SwitchTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                    Text(
+                      label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     if (subtitle != null)
-                      Text(subtitle!, style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
+                      Text(
+                        subtitle!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
+                        ),
+                      ),
                   ],
                 ),
               ),
               loading
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : Switch.adaptive(
                       value: value,
                       onChanged: (newValue) {
@@ -894,7 +910,7 @@ class _SwitchTile extends StatelessWidget {
             ],
           ),
         );
-      }
+      },
     );
   }
 }
