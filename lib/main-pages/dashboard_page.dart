@@ -158,18 +158,32 @@ class _DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveCl
     if (_selectedSort == 'Completed Only') return completedDocs;
     if (_selectedSort == 'Unassigned Only') return unassignedDocs;
 
+    // Get user skills for recommendation logic
+    final userSkills = List<String>.from(_userProfile?['skills'] ?? []);
+
     void sortList(List<QueryDocumentSnapshot> list) {
-      switch (_selectedSort) {
-        case 'Most Urgent':
-          list.sort((a, b) => _urgencyRank(a['urgency'] ?? '').compareTo(_urgencyRank(b['urgency'] ?? '')));
-          break;
-        case 'Nearest':
-          list.sort((a, b) => _distanceKm((a['lat'] ?? 0).toDouble(), (a['lng'] ?? 0).toDouble()).compareTo(_distanceKm((b['lat'] ?? 0).toDouble(), (b['lng'] ?? 0).toDouble())));
-          break;
-        case 'Latest':
-        default:
-          list.sort((a, b) => ((b['timestamp'] as Timestamp?)?.millisecondsSinceEpoch ?? 0).compareTo(((a['timestamp'] as Timestamp?)?.millisecondsSinceEpoch ?? 0)));
-      }
+      list.sort((a, b) {
+        // 1. Prioritize skill matches for unassigned tasks
+        if (a['status'] == 'unassigned' && b['status'] == 'unassigned' && userSkills.isNotEmpty) {
+          final aSkills = List<String>.from(a['aiSummary']?['skillset_required'] ?? []);
+          final bSkills = List<String>.from(b['aiSummary']?['skillset_required'] ?? []);
+          
+          bool aMatch = aSkills.any((s) => userSkills.contains(s));
+          bool bMatch = bSkills.any((s) => userSkills.contains(s));
+
+          if (aMatch != bMatch) return aMatch ? -1 : 1;
+        }
+
+        switch (_selectedSort) {
+          case 'Most Urgent':
+            return _urgencyRank(a['urgency'] ?? '').compareTo(_urgencyRank(b['urgency'] ?? ''));
+          case 'Nearest':
+            return _distanceKm((a['lat'] ?? 0).toDouble(), (a['lng'] ?? 0).toDouble()).compareTo(_distanceKm((b['lat'] ?? 0).toDouble(), (b['lng'] ?? 0).toDouble()));
+          case 'Latest':
+          default:
+            return ((b['timestamp'] as Timestamp?)?.millisecondsSinceEpoch ?? 0).compareTo(((a['timestamp'] as Timestamp?)?.millisecondsSinceEpoch ?? 0));
+        }
+      });
     }
 
     sortList(unassignedDocs);
@@ -361,10 +375,15 @@ class _DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveCl
                       else if (urgency == 'Low') localizedUrgency = l10n.low;
 
                       String localizedStatus = status;
-                      if (status == 'unassigned') {
-                        localizedStatus = l10n.unassigned;
-                      } else if (status == 'assigned') localizedStatus = l10n.assigned;
+                      if (status == 'unassigned') localizedStatus = l10n.unassigned;
+                      else if (status == 'assigned') localizedStatus = l10n.assigned;
                       else if (status == 'completed') localizedStatus = l10n.completed;
+
+                      // Skill matching logic
+                      final userSkills = List<String>.from(_userProfile?['skills'] ?? []);
+                      final requiredSkills = List<String>.from(data['aiSummary']?['skillset_required'] ?? []);
+                      final hasMatch = userSkills.isNotEmpty && requiredSkills.any((s) => userSkills.contains(s));
+                      final isRecommended = isUnassigned && hasMatch;
 
                       return Column(
                         key: ValueKey(doc.id),
@@ -378,47 +397,72 @@ class _DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveCl
                             padding: const EdgeInsets.only(bottom: 12),
                             child: Opacity(
                               opacity: isCompleted ? 0.6 : 1.0,
-                              child: Card(
-                                elevation: isUnassigned ? 4 : 1,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: isUnassigned 
-                                    ? BorderSide(color: theme.colorScheme.primary.withOpacity(0.3), width: 1)
-                                    : BorderSide.none,
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: () => _showReportDetail(context, data, doc.id, l10n),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (isRecommended)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 4, bottom: 4),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.star, color: Colors.amber, size: 14),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            "RECOMMENDED FOR YOU",
+                                            style: theme.textTheme.labelSmall?.copyWith(
+                                              color: Colors.amber.shade800,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  Card(
+                                    elevation: isRecommended ? 6 : (isUnassigned ? 4 : 1),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: isRecommended
+                                          ? BorderSide(color: Colors.amber.withValues(alpha: 0.5), width: 1.5)
+                                          : (isUnassigned 
+                                              ? BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.3), width: 1)
+                                              : BorderSide.none),
+                                    ),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () => _showReportDetail(context, data, doc.id, l10n),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(14),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(_issueIcon(issueType), color: theme.colorScheme.primary, size: 20)),
-                                            const SizedBox(width: 10),
-                                            Expanded(child: Text(localizedIssue, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600))),
-                                            _Badge(label: localizedUrgency, color: _urgencyColor(urgency), icon: Icons.circle, iconSize: 8),
+                                            Row(
+                                              children: [
+                                                Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)), child: Icon(_issueIcon(issueType), color: theme.colorScheme.primary, size: 20)),
+                                                const SizedBox(width: 10),
+                                                Expanded(child: Text(localizedIssue, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600))),
+                                                _Badge(label: localizedUrgency, color: _urgencyColor(urgency), icon: Icons.circle, iconSize: 8),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(data['description'] ?? '', style: theme.textTheme.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                            if (data['aiSummary'] != null) ...[ const SizedBox(height: 10), AiSummaryCard(aiSummary: data['aiSummary'], compact: true) ],
+                                            const SizedBox(height: 10),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.near_me_outlined, size: 14, color: theme.textTheme.bodyMedium?.color),
+                                                const SizedBox(width: 4),
+                                                Text(_distanceLabel(data['lat'], data['lng']), style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                                                const Spacer(),
+                                                _Badge(label: localizedStatus, color: _statusColor(status), icon: _statusIcon(status), iconSize: 12),
+                                              ],
+                                            ),
                                           ],
                                         ),
-                                        const SizedBox(height: 8),
-                                        Text(data['description'] ?? '', style: theme.textTheme.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
-                                        if (data['aiSummary'] != null) ...[ const SizedBox(height: 10), AiSummaryCard(aiSummary: data['aiSummary'], compact: true) ],
-                                        const SizedBox(height: 10),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.near_me_outlined, size: 14, color: theme.textTheme.bodyMedium?.color),
-                                            const SizedBox(width: 4),
-                                            Text(_distanceLabel(data['lat'], data['lng']), style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                                            const Spacer(),
-                                            _Badge(label: localizedStatus, color: _statusColor(status), icon: _statusIcon(status), iconSize: 12),
-                                          ],
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
                           ),

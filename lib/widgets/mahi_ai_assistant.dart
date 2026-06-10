@@ -18,6 +18,17 @@ class _MahiAiAssistantState extends State<MahiAiAssistant> with SingleTickerProv
   late AnimationController _hoverController;
   late Animation<double> _hoverAnimation;
 
+  final List<String> _quickQuestions = [
+    "🚨 How can I report an emergency?",
+    "🏠 Where is the nearest shelter or relief camp?",
+    "🏥 Where can I get medical assistance nearby?",
+    "📍 How can I share my location with responders?",
+    "👤 How do I report a missing person?",
+    "🌊 What should I do during a flood?",
+    "🌍 What should I do during an earthquake?",
+    "🙋 How can I volunteer and help others?",
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -67,14 +78,14 @@ class _MahiAiAssistantState extends State<MahiAiAssistant> with SingleTickerProv
     });
   }
 
-  Future<void> _sendMessage() async {
-    final text = _controller.text.trim();
+  Future<void> _sendMessage({String? predefinedText}) async {
+    final text = predefinedText ?? _controller.text.trim();
     if (text.isEmpty) return;
 
     setState(() {
       _messages.add({'role': 'user', 'content': text});
       _isLoading = true;
-      _controller.clear();
+      if (predefinedText == null) _controller.clear();
     });
     _scrollToBottom();
 
@@ -242,6 +253,63 @@ User asks: $text""";
                                 backgroundColor: Colors.transparent,
                                 valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor.withOpacity(0.5)),
                                 minHeight: 2,
+                              ),
+                            // Quick Questions
+                            if (_messages.isEmpty && !_isLoading)
+                              Container(
+                                height: 160,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: ListView.builder(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  itemCount: _quickQuestions.length,
+                                  itemBuilder: (context, index) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: InkWell(
+                                        onTap: () => _sendMessage(predefinedText: _quickQuestions[index]),
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            _quickQuestions[index],
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Theme.of(context).primaryColor,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              )
+                            else if (!_isLoading)
+                              SizedBox(
+                                height: 45,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  itemCount: _quickQuestions.length,
+                                  itemBuilder: (context, index) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      child: ActionChip(
+                                        label: Text(
+                                          _quickQuestions[index],
+                                          style: const TextStyle(fontSize: 11),
+                                        ),
+                                        onPressed: () => _sendMessage(predefinedText: _quickQuestions[index]),
+                                        padding: EdgeInsets.zero,
+                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             // Input Area
                             Container(

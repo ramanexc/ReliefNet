@@ -1,44 +1,41 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'dart:math';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 
 class GeminiService {
   static const _apiKey = String.fromEnvironment('GOOGLE_API_KEY');
-  static const _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models';
-  static const _model = 'gemini-3.1-flash-lite';
+  static const _modelName = 'gemini-3.1-flash-lite';
+
+  static GenerativeModel? _model;
+
+  static GenerativeModel get _getModel {
+    _model ??= GenerativeModel(
+      model: _modelName,
+      apiKey: _apiKey,
+      generationConfig: GenerationConfig(
+        temperature: 0.7,
+        maxOutputTokens: 1024,
+      ),
+    );
+    return _model!;
+  }
 
   static Future<String?> _callGemini(String prompt) async {
+    print('DEBUG: API Key length: ${_apiKey.length}');
+    if (_apiKey.isNotEmpty) {
+      print('DEBUG: API Key starts with: ${_apiKey.substring(0, min(5, _apiKey.length))}...');
+    }
+
     if (_apiKey.isEmpty) {
-      print('GEMINI ERROR: GOOGLE_API_KEY is not set. Use --dart-define=GOOGLE_API_KEY=your_key');
+      print('GEMINI ERROR: GOOGLE_API_KEY is not set. Make sure to use --dart-define=GOOGLE_API_KEY=your_key');
       return "AI Assistant is not configured. Please contact support.";
     }
     try {
-      final response = await http
-          .post(
-            Uri.parse('$_baseUrl/$_model:generateContent?key=$_apiKey'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'contents': [
-                {
-                  'parts': [
-                    {'text': prompt},
-                  ],
-                },
-              ],
-              'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 1024},
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode != 200) {
-        print('GEMINI ERROR: ${response.statusCode} ${response.body}');
-        return null;
-      }
-
-      final data = jsonDecode(response.body);
-      return data['candidates']?[0]?['content']?['parts']?[0]?['text']
-          as String?;
+      final content = [Content.text(prompt)];
+      final response = await _getModel.generateContent(content);
+      return response.text;
     } catch (e) {
       print('GEMINI ERROR: $e');
       return null;
@@ -75,11 +72,23 @@ class GeminiService {
 
   // ── Per-report analysis ───────────────────────────────────────────────────
 
+  static final List<String> availableSkills = [
+    "Animal Care / Veterinary", "Carpentry", "Child Care", "Community Outreach", "Cooking",
+    "Counseling", "CPR", "Crisis Communication", "Data Entry", "Debris Removal",
+    "Driving", "Elderly Care", "Electrical Work", "Emergency Response", "Event Coordination",
+    "Firefighting", "First Aid", "Fundraising", "Heavy Machinery Operation", "Inventory Management",
+    "IT Support", "Legal Support", "Logistics", "Medical Assistance", "Mental Health Support",
+    "Nursing", "Nutrition & Dietetics", "Photography / Videography", "Plumbing", "Radio Operation",
+    "Search & Rescue", "Security Services", "Social Media Management", "Supply Distribution",
+    "swimming", "Teaching", "Translation", "Water Purification"
+  ];
+
   static Future<Map<String, dynamic>?> analyzeReport({
     required String issueType,
     required String urgency,
     required String description,
   }) async {
+    final skillsString = availableSkills.join(", ");
     final prompt =
         '''
 You are an AI assistant for ReliefNet, an NGO field reporting platform.
@@ -99,7 +108,9 @@ Respond with exactly this JSON structure:
   "action_priority": "Immediate / Within 24 hours / Within a week"
 }
 
-Keep solutions practical and specific to the issue type. Keep each skillset item short (1-3 words each, e.g. "First Aid", "Logistics", "Counseling").
+IMPORTANT: For "skillset_required", you MUST choose 2-5 skills from this specific list: [$skillsString]. 
+If a required skill is not in the list but is absolutely critical, you may add it, but prioritize the provided list.
+Keep solutions practical and specific to the issue type.
 ''';
 
     final text = await _callGemini(prompt);
@@ -155,7 +166,7 @@ Keep solutions practical and specific to the issue type. Keep each skillset item
       }
     }
 
-    // Primary: Google Places API
+    // Primary: Google Places API (using http because the generative AI package doesn't cover this)
     try {
       final url = Uri.parse(
         'https://places.googleapis.com/v1/places:searchText',

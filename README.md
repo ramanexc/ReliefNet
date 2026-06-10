@@ -148,7 +148,7 @@ Role-based access — only verified NGO volunteers can accept tasks. Profiles tr
 | **Database** | Firebase Firestore (real-time) |
 | **Authentication** | Firebase Auth + Google Sign-In |
 | **File Storage** | Firebase Storage |
-| **AI / ML** | Gemini API (`gemini-3.1-flash-lite`) |
+| **AI / ML** | Gemini API (`gemini-1.5-flash`) |
 | **Maps & Navigation** | Google Maps API |
 | **Places Search** | Google Places API (New) |
 | **Location** | Geolocator (Haversine distance) |
