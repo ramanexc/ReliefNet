@@ -83,9 +83,11 @@ export function renderReports() {
       ? allReports
       : currentFilter === "completed"
         ? allReports.filter((r) => r.status === "completed")
-        : currentFilter === "active"
-          ? allReports.filter((r) => r.status !== "completed")
-          : allReports.filter((r) => r.urgency === currentFilter);
+        : currentFilter === "spam"
+          ? allReports.filter((r) => r.status === "suspected_spam" || r.status === "flagged")
+          : currentFilter === "active"
+            ? allReports.filter((r) => r.status !== "completed" && r.status !== "suspected_spam" && r.status !== "flagged")
+            : allReports.filter((r) => r.urgency === currentFilter);
 
   if (searchQuery) {
     filtered = filtered.filter(
@@ -171,7 +173,11 @@ window.reportsNextPage = () => {
       ? allReports
       : currentFilter === "completed"
         ? allReports.filter((r) => r.status === "completed")
-        : allReports.filter((r) => r.urgency === currentFilter);
+        : currentFilter === "spam"
+          ? allReports.filter((r) => r.status === "suspected_spam" || r.status === "flagged")
+          : currentFilter === "active"
+            ? allReports.filter((r) => r.status !== "completed" && r.status !== "suspected_spam" && r.status !== "flagged")
+            : allReports.filter((r) => r.urgency === currentFilter);
 
   if (searchQuery) {
     filtered = filtered.filter(
@@ -234,6 +240,7 @@ function renderModalContentOnly(r) {
   const skills = ai.skillset_required || [];
   const solutions = ai.solutions || [];
   const assigned = r.assignedVolunteers || [];
+  const cred = r.credibility || {};
 
   // Build assigned volunteers section
   const assignedHtml =
@@ -386,6 +393,31 @@ function renderModalContentOnly(r) {
       <!-- RIGHT COLUMN -->
       <div style="display:flex;flex-direction:column;gap:16px">
 
+        <!-- Credibility Engine -->
+        ${cred.score !== undefined ? `
+        <div class="modal-section" style="border-left: 4px solid ${cred.score >= 70 ? 'var(--green)' : 'var(--red)'}">
+          <div class="modal-section-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Credibility Engine</span>
+            <span class="badge ${cred.score >= 70 ? 'badge-green' : 'badge-red'}" style="font-size:14px">${cred.score}% Match</span>
+          </div>
+          <div style="margin-top:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div>
+                <div style="font-size:10px;color:var(--gray-400);text-transform:uppercase">Spam Probability</div>
+                <div style="font-size:13px;font-weight:600">${cred.spamProbability}%</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--gray-400);text-transform:uppercase">AI Verdict</div>
+                <div style="font-size:13px;font-weight:600">${esc(cred.status)}</div>
+              </div>
+            </div>
+            <div style="margin-top:12px;font-size:12px;color:var(--gray-600);background:var(--gray-100);padding:8px;border-radius:6px;font-style:italic">
+              "${esc(cred.reason)}"
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
         <!-- AI Summary -->
         <div class="modal-section" style="background:var(--blue-light);border-color:var(--blue)">
           <div class="modal-section-title" style="color:var(--blue)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> AI Analysis <span style="font-size:10px;font-weight:400;opacity:0.7">Powered by Gemini</span></div>
@@ -453,9 +485,20 @@ function renderModalContentOnly(r) {
               <div class="resolve-form">
                 <label for="resolve-note">Resolution Note (optional)</label>
                 <textarea id="resolve-note" placeholder="Describe how this was resolved..."></textarea>
-                <button class="action-btn btn-resolve" id="resolve-btn" onclick="resolveReport('${r.id}')" style="width:100%;padding:10px;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Mark as Resolved
-                </button>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+                  <button class="action-btn btn-resolve" id="resolve-btn" onclick="resolveReport('${r.id}')" style="padding:10px;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Resolved
+                  </button>
+                  ${r.status === 'suspected_spam' || r.status === 'flagged' ? `
+                    <button class="action-btn btn-approve" onclick="updateReportStatus('${r.id}', 'unassigned')" style="padding:10px;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Verify
+                    </button>
+                  ` : `
+                    <button class="action-btn btn-reject" onclick="updateReportStatus('${r.id}', 'suspected_spam')" style="padding:10px;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg> Mark Spam
+                    </button>
+                  `}
+                </div>
               </div>
             `
                 : `<div style="font-size:13px;color:var(--green);font-weight:600;display:inline-flex;align-items:center;gap:6px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--green);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> This report has been resolved</div>`
@@ -675,9 +718,34 @@ window.resolveReport = async (id) => {
   }
 };
 
+// ─── UPDATE STATUS (SPAM/VERIFY) ────────────────────────────
+window.updateReportStatus = async (id, newStatus) => {
+  const confirmMsg = newStatus === 'suspected_spam'
+    ? "Mark this report as SPAM? It will be hidden from volunteers."
+    : "Verify this report? It will be visible to volunteers.";
+
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    await updateDoc(doc(db, "reports", id), { status: newStatus });
+
+    // Log action
+    logAdminAction("update_report_status", id, { status: newStatus });
+
+    const r = allReports.find((x) => x.id === id);
+    if (r) r.status = newStatus;
+
+    renderReports();
+    updateReportsBadge();
+    showToast(newStatus === 'suspected_spam' ? "Report marked as spam" : "Report verified");
+  } catch (e) {
+    showToast("Error: " + e.message);
+  }
+};
+
 // ─── REPORTS BADGE ───────────────────────────────────────────
 function updateReportsBadge() {
-  const active = allReports.filter((r) => r.status !== "completed").length;
+  const active = allReports.filter((r) => r.status !== "completed" && r.status !== "suspected_spam" && r.status !== "flagged").length;
   const badge = document.getElementById("reports-badge");
   if (badge) {
     if (active > 0) {

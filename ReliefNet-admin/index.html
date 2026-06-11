@@ -176,6 +176,16 @@
           <div class="stat-value" id="stat-pending-apps" style="color:var(--orange)">—</div>
           <div class="stat-label">Pending Applications</div>
         </button>
+        <button class="stat-card" onclick="goToReports('spam')" type="button">
+          <div class="stat-header">
+            <span class="stat-icon-wrapper badge-red">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+            </span>
+            <span class="stat-chevron">›</span>
+          </div>
+          <div class="stat-value" id="stat-spam" style="color:var(--red)">—</div>
+          <div class="stat-label">Spam Reports</div>
+        </button>
       </div>
 
       <!-- MAP SECTION -->
@@ -246,6 +256,9 @@
             <button class="filter-btn" onclick="filterReports('Low', this)"><span class="filter-dot" style="background: var(--green);"></span> Low</button>
             <button class="filter-btn" onclick="filterReports('completed', this)">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Resolved
+            </button>
+            <button class="filter-btn" onclick="filterReports('spam', this)">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg> Spam
             </button>
             <button class="filter-btn btn-export" onclick="exportReports()" type="button">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export CSV

@@ -16,13 +16,15 @@ let chartTrends = null;
 
 export function renderOverview() {
   const total       = allReports.length;
-  const active      = allReports.filter(r => r.status !== 'completed').length;
+  const active      = allReports.filter(r => r.status !== 'completed' && r.status !== 'suspected_spam' && r.status !== 'flagged').length;
   const resolved    = allReports.filter(r => r.status === 'completed').length;
+  const spam        = allReports.filter(r => r.status === 'suspected_spam' || r.status === 'flagged').length;
   const pendingApps = allApps.filter(a => a.status === 'pending').length;
 
   document.getElementById('stat-total').textContent       = total;
   document.getElementById('stat-active').textContent      = active;
   document.getElementById('stat-resolved').textContent    = resolved;
+  document.getElementById('stat-spam').textContent        = spam;
   document.getElementById('stat-pending-apps').textContent = pendingApps;
 
   // Recent 5 reports
