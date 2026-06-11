@@ -143,7 +143,7 @@ class _SignupPageState extends State<SignupPage> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _nameController,
-                        style: textTheme.bodyMedium,
+                        style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.normal),
                         textCapitalization: TextCapitalization.words,
                         decoration: const InputDecoration(hintText: "John Doe", prefixIcon: Icon(Icons.person_outline)),
                         validator: (v) => (v == null || v.trim().isEmpty) ? "Full name is required" : null,
@@ -155,7 +155,7 @@ class _SignupPageState extends State<SignupPage> {
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        style: textTheme.bodyMedium,
+                        style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.normal),
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
                           IndiaPhoneFormatter(),
@@ -178,7 +178,7 @@ class _SignupPageState extends State<SignupPage> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        style: textTheme.bodyMedium,
+                        style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.normal),
                         decoration: const InputDecoration(hintText: "your@email.com", prefixIcon: Icon(Icons.email_outlined)),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) return "Email is required";
@@ -193,7 +193,7 @@ class _SignupPageState extends State<SignupPage> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscure1,
-                        style: textTheme.bodyMedium,
+                        style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.normal),
                         decoration: InputDecoration(
                           hintText: "Min. 8 characters",
                           prefixIcon: const Icon(Icons.lock_outline),
@@ -208,7 +208,7 @@ class _SignupPageState extends State<SignupPage> {
                       TextFormField(
                         controller: _confirmPasswordController,
                         obscureText: _obscure2,
-                        style: textTheme.bodyMedium,
+                        style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.normal),
                         decoration: InputDecoration(
                           hintText: l10n.re_enter_password,
                           prefixIcon: const Icon(Icons.lock_outline),

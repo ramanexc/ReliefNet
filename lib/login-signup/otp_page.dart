@@ -76,7 +76,7 @@ class _OTPPageState extends State<OTPPage> {
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
               maxLength: 6,
-              style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.normal),
               decoration: const InputDecoration(
                 counterText: "",
                 hintText: "000000",

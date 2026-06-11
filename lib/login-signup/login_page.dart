@@ -338,6 +338,7 @@ class _LoginPageState extends State<LoginPage> {
           obscureText: obscure,
           keyboardType: type,
           inputFormatters: inputFormatters,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.normal),
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, size: 20),
