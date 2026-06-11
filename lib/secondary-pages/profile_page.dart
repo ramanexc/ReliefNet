@@ -24,6 +24,11 @@ class _ProfilePageState extends State<ProfilePage>
   final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _volunteerIdController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _contactNameController = TextEditingController();
+  final _contactPhoneController = TextEditingController();
 
   // ── State ─────────────────────────────────────────────────────────────────
   File? _image;
@@ -31,6 +36,55 @@ class _ProfilePageState extends State<ProfilePage>
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isEditing = false;
+
+  String? _selectedAgeRange;
+  String? _selectedAvailability;
+  String? _selectedFitness;
+
+  final List<String> _availableSkills = [
+    "First Aid & CPR",
+    "Search & Rescue",
+    "Medical & Nursing",
+    "Psychological First Aid",
+    "Driving (4x4 / Heavy)",
+    "Logistics & Inventory",
+    "Cooking & Catering",
+    "Radio Operation (HAM)",
+    "Construction & Carpentry",
+    "Electrical & Generators",
+    "Water & Sanitation (WASH)",
+    "Language Translation",
+    "Community Outreach",
+    "Security & Crowd Control",
+    "IT & Telecommunications",
+    "Child & Elder Care"
+  ];
+  List<String> _selectedSkills = [];
+
+  final List<String> _availableLanguages = [
+    "English", "Hindi", "Bengali", "Punjabi", "Marathi", "Tamil", "Telugu", "Urdu"
+  ];
+  List<String> _selectedLanguages = [];
+
+  List<String> _parseList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return List<String>.from(value.map((e) => e.toString()));
+    }
+    if (value is String) {
+      if (value.trim().isEmpty) return [];
+      if (value.startsWith('[') && value.endsWith(']')) {
+        final stripped = value.substring(1, value.length - 1);
+        if (stripped.trim().isEmpty) return [];
+        return stripped.split(',').map((e) => e.replaceAll('"', '').replaceAll("'", "").trim()).toList();
+      }
+      if (value.contains(',')) {
+        return value.split(',').map((e) => e.trim()).toList();
+      }
+      return [value.trim()];
+    }
+    return [];
+  }
 
   // ── Profile data ──────────────────────────────────────────────────────────
   Map<String, dynamic>? _profile;
@@ -63,6 +117,11 @@ class _ProfilePageState extends State<ProfilePage>
     _nameController.dispose();
     _usernameController.dispose();
     _volunteerIdController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _locationController.dispose();
+    _contactNameController.dispose();
+    _contactPhoneController.dispose();
     _fadeCtrl.dispose();
     super.dispose();
   }
@@ -82,17 +141,49 @@ class _ProfilePageState extends State<ProfilePage>
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      final doc = await FirebaseFirestore.instance
+      final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .get();
-      if (doc.exists && mounted) {
-        final data = doc.data()!;
-        _profile = data;
-        _nameController.text = data['name'] ?? '';
-        _usernameController.text = data['username'] ?? '';
-        _volunteerIdController.text = data['volunteerId'] ?? '';
-        _existingPhotoUrl = data['profilePic'];
+      
+      Map<String, dynamic> mergedData = {};
+      if (userDoc.exists) {
+        mergedData.addAll(userDoc.data()!);
+      }
+
+      final volDoc = await FirebaseFirestore.instance
+          .collection('volunteer_applications')
+          .doc(uid)
+          .get();
+      if (volDoc.exists) {
+        volDoc.data()!.forEach((key, value) {
+          if (value != null && mergedData[key] == null) {
+            mergedData[key] = value;
+          }
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _profile = mergedData;
+          _nameController.text = mergedData['name'] ?? '';
+          _usernameController.text = mergedData['username'] ?? '';
+          _volunteerIdController.text = mergedData['volunteerId'] ?? '';
+          _existingPhotoUrl = mergedData['profilePic'];
+
+          _emailController.text = mergedData['email'] ?? '';
+          _phoneController.text = mergedData['phone'] ?? '';
+          _locationController.text = mergedData['servingArea'] ?? '';
+          _contactNameController.text = mergedData['emergencyContactName'] ?? '';
+          _contactPhoneController.text = mergedData['emergencyContactPhone'] ?? '';
+
+          _selectedAgeRange = mergedData['ageRange'];
+          _selectedAvailability = mergedData['availability'];
+          _selectedFitness = mergedData['fitness'];
+          
+          _selectedSkills = _parseList(mergedData['skills']);
+          _selectedLanguages = _parseList(mergedData['languages']);
+        });
       }
     } catch (e) {
       debugPrint('loadProfile error: $e');
@@ -202,84 +293,137 @@ class _ProfilePageState extends State<ProfilePage>
   // ── Save ──────────────────────────────────────────────────────────────────
 
   Future<void> _saveProfile() async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
 
-  final enteredId = _volunteerIdController.text.trim();
+    final enteredId = _volunteerIdController.text.trim();
 
-  if (_nameController.text.trim().isEmpty ||
-      _usernameController.text.trim().isEmpty) {
-    _snack('Name and username are required');
-    return;
-  }
+    if (_nameController.text.trim().isEmpty ||
+        _usernameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
+        _phoneController.text.trim().isEmpty) {
+      _snack('Name, username, email, and phone number are required');
+      return;
+    }
 
-  setState(() => _isSaving = true);
+    setState(() => _isSaving = true);
 
-  try {
-    bool isValidVolunteer = false;
+    try {
+      final isAlreadyVolunteer = _profile?['isVolunteer'] == true;
+      bool isValidVolunteer = isAlreadyVolunteer;
+      // Validate volunteer ID if entered and it changed
+      if (enteredId.isNotEmpty && enteredId != _profile?['volunteerId']) {
+        final doc = await FirebaseFirestore.instance
+            .collection('volunteer_applications')
+            .doc(uid)
+            .get();
 
-    // 🔹 Only validate if user entered something
-    if (enteredId.isNotEmpty) {
-      final doc = await FirebaseFirestore.instance
-          .collection('volunteer_applications')
-          .doc(uid)
-          .get();
+        if (doc.exists) {
+          final data = doc.data()!;
+          final approved = data['status'] == 'approved';
+          final correctId = data['volunteerId'] == enteredId;
 
-      if (doc.exists) {
-        final data = doc.data()!;
-
-        final approved = data['status'] == 'approved';
-        final correctId = data['volunteerId'] == enteredId;
-
-        if (approved && correctId) {
-          isValidVolunteer = true;
+          if (approved && correctId) {
+            isValidVolunteer = true;
+          } else {
+            _snack('Invalid Volunteer ID or not approved yet');
+            setState(() => _isSaving = false);
+            return;
+          }
         } else {
-          _snack('Invalid Volunteer ID or not approved yet');
+          _snack('No volunteer application found');
           setState(() => _isSaving = false);
           return;
         }
-      } else {
-        _snack('No volunteer application found');
-        setState(() => _isSaving = false);
-        return;
+      } else if (enteredId.isEmpty) {
+        isValidVolunteer = false;
       }
+
+      // Validate volunteer specific fields if they are a volunteer
+      if (isValidVolunteer) {
+        if (_locationController.text.trim().isEmpty ||
+            _contactNameController.text.trim().isEmpty ||
+            _contactPhoneController.text.trim().isEmpty ||
+            _selectedSkills.isEmpty ||
+            _selectedLanguages.isEmpty ||
+            _selectedAvailability == null ||
+            _selectedFitness == null ||
+            _selectedAgeRange == null) {
+          _snack('Please fill in all volunteer profile fields');
+          setState(() => _isSaving = false);
+          return;
+        }
+      }
+
+      // Upload image
+      String? imageUrl;
+      if (_image != null) {
+        final ref = FirebaseStorage.instance.ref('profile_pics/$uid.jpg');
+        await ref.putFile(_image!);
+        imageUrl = await ref.getDownloadURL();
+      }
+
+      final data = <String, dynamic>{
+        'name': _nameController.text.trim(),
+        'username': _usernameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'volunteerId': isValidVolunteer ? (enteredId.isNotEmpty ? enteredId : (_profile?['volunteerId'] ?? '')) : '',
+        'isVolunteer': isValidVolunteer,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (imageUrl != null) data['profilePic'] = imageUrl;
+
+      if (isValidVolunteer) {
+        data['ageRange'] = _selectedAgeRange;
+        data['availability'] = _selectedAvailability;
+        data['fitness'] = _selectedFitness;
+        data['servingArea'] = _locationController.text.trim();
+        data['emergencyContactName'] = _contactNameController.text.trim();
+        data['emergencyContactPhone'] = _contactPhoneController.text.trim();
+        data['skills'] = _selectedSkills;
+        data['languages'] = _selectedLanguages;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .set(data, SetOptions(merge: true));
+
+      // Sync to volunteer_applications if volunteer
+      if (isValidVolunteer) {
+        final volData = <String, dynamic>{
+          'email': _emailController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'ageRange': _selectedAgeRange,
+          'availability': _selectedAvailability,
+          'fitness': _selectedFitness,
+          'servingArea': _locationController.text.trim(),
+          'emergencyContactName': _contactNameController.text.trim(),
+          'emergencyContactPhone': _contactPhoneController.text.trim(),
+          'skills': _selectedSkills,
+          'languages': _selectedLanguages,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        await FirebaseFirestore.instance
+            .collection('volunteer_applications')
+            .doc(uid)
+            .set(volData, SetOptions(merge: true));
+      }
+
+      await _loadProfile();
+
+      if (mounted) {
+        setState(() => _isEditing = false);
+        _snack('Profile updated!');
+      }
+    } catch (e) {
+      _snack('Error: $e');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
-
-    // 🔹 Upload image (same as before)
-    String? imageUrl;
-    if (_image != null) {
-      final ref = FirebaseStorage.instance.ref('profile_pics/$uid.jpg');
-      await ref.putFile(_image!);
-      imageUrl = await ref.getDownloadURL();
-    }
-
-    final data = <String, dynamic>{
-      'name': _nameController.text.trim(),
-      'username': _usernameController.text.trim(),
-      'volunteerId': isValidVolunteer ? enteredId : '',
-      'isVolunteer': isValidVolunteer,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (imageUrl != null) data['profilePic'] = imageUrl;
-
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .set(data, SetOptions(merge: true));
-
-    await _loadProfile();
-
-    if (mounted) {
-      setState(() => _isEditing = false);
-      _snack('Profile updated!');
-    }
-  } catch (e) {
-    _snack('Error: $e');
-  } finally {
-    if (mounted) setState(() => _isSaving = false);
   }
-}
 
   // ── Sign out ──────────────────────────────────────────────────────────────
 
@@ -431,6 +575,18 @@ class _ProfilePageState extends State<ProfilePage>
                   _nameController.text = _profile?['name'] ?? '';
                   _usernameController.text = _profile?['username'] ?? '';
                   _volunteerIdController.text = _profile?['volunteerId'] ?? '';
+                  _emailController.text = _profile?['email'] ?? '';
+                  _phoneController.text = _profile?['phone'] ?? '';
+                  _locationController.text = _profile?['servingArea'] ?? '';
+                  _contactNameController.text = _profile?['emergencyContactName'] ?? '';
+                  _contactPhoneController.text = _profile?['emergencyContactPhone'] ?? '';
+
+                  _selectedAgeRange = _profile?['ageRange'];
+                  _selectedAvailability = _profile?['availability'];
+                  _selectedFitness = _profile?['fitness'];
+                  
+                  _selectedSkills = _parseList(_profile?['skills']);
+                  _selectedLanguages = _parseList(_profile?['languages']);
                   _image = null;
                 }
               }),
@@ -441,15 +597,28 @@ class _ProfilePageState extends State<ProfilePage>
               duration: const Duration(milliseconds: 280),
               curve: Curves.easeInOut,
               child: _isEditing
-                  ? _EditForm(
-                      nameController: _nameController,
-                      usernameController: _usernameController,
-                      volunteerIdController: _volunteerIdController,
-                      isSaving: _isSaving,
-                      onSave: _saveProfile,
-                    )
+                  ? _buildEditForm(theme, theme.textTheme)
                   : const SizedBox.shrink(),
             ),
+
+            if (!_isEditing) ...[
+              const SizedBox(height: 24),
+              _SectionLabel(label: 'Profile Details'),
+              const SizedBox(height: 10),
+              _buildReadOnlyProfileDetails(theme),
+              
+              if (isVolunteer) ...[
+                const SizedBox(height: 24),
+                _SectionLabel(label: 'Volunteer Profile'),
+                const SizedBox(height: 10),
+                _buildReadOnlyVolunteerProfile(theme),
+                
+                const SizedBox(height: 24),
+                _SectionLabel(label: 'Emergency Contact'),
+                const SizedBox(height: 10),
+                _buildReadOnlyEmergencyContact(theme),
+              ],
+            ],
 
             const SizedBox(height: 24),
 
@@ -467,7 +636,7 @@ class _ProfilePageState extends State<ProfilePage>
               onCompletedTap: _onCompletedStatTap,
             ),
 
-            // const SizedBox(height: 28),
+            const SizedBox(height: 28),
 
             // ── Volunteer Badge ───────────────────────────────────────────
             if (isVolunteer) ...[
@@ -501,6 +670,387 @@ class _ProfilePageState extends State<ProfilePage>
       ),
     );
   }
+
+  // ── Helper UI Methods inside _ProfilePageState ──
+
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+    required ThemeData theme,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: theme.dividerColor.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 20),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyProfileDetails(ThemeData theme) {
+    return _buildSectionCard(
+      title: 'Contact Information',
+      icon: Icons.contact_mail_outlined,
+      theme: theme,
+      children: [
+        _buildInfoRow(Icons.email_outlined, 'Email Address', _profile?['email'] ?? 'Not set', theme),
+        const SizedBox(height: 12),
+        _buildInfoRow(Icons.phone_outlined, 'Phone Number', _profile?['phone'] ?? 'Not set', theme),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyVolunteerProfile(ThemeData theme) {
+    final skills = _parseList(_profile?['skills']);
+    final languages = _parseList(_profile?['languages']);
+
+    return _buildSectionCard(
+      title: 'Volunteer Profile',
+      icon: Icons.volunteer_activism_outlined,
+      theme: theme,
+      children: [
+        _buildInfoRow(Icons.cake_outlined, 'Age Range', _profile?['ageRange'] ?? 'Not set', theme),
+        const SizedBox(height: 12),
+        _buildInfoRow(Icons.schedule_outlined, 'Availability', _profile?['availability'] ?? 'Not set', theme),
+        const SizedBox(height: 12),
+        _buildInfoRow(Icons.fitness_center_outlined, 'Physical Fitness', _profile?['fitness'] ?? 'Not set', theme),
+        const SizedBox(height: 12),
+        _buildInfoRow(Icons.map_outlined, 'Serving Area', _profile?['servingArea'] ?? 'Not set', theme),
+        if (skills.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('Skills', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: skills.map((skill) => Chip(
+              label: Text(skill, style: const TextStyle(fontSize: 12)),
+              backgroundColor: theme.colorScheme.primary.withOpacity(0.08),
+              side: BorderSide.none,
+              padding: EdgeInsets.zero,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            )).toList(),
+          ),
+        ],
+        if (languages.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('Languages', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: languages.map((lang) => Chip(
+              label: Text(lang, style: const TextStyle(fontSize: 12)),
+              backgroundColor: theme.colorScheme.secondary.withOpacity(0.08),
+              side: BorderSide.none,
+              padding: EdgeInsets.zero,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            )).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyEmergencyContact(ThemeData theme) {
+    return _buildSectionCard(
+      title: 'Emergency Contact',
+      icon: Icons.contact_emergency_outlined,
+      theme: theme,
+      children: [
+        _buildInfoRow(Icons.person_pin_outlined, 'Contact Name', _profile?['emergencyContactName'] ?? 'Not set', theme),
+        const SizedBox(height: 12),
+        _buildInfoRow(Icons.phone_iphone_outlined, 'Contact Phone', _profile?['emergencyContactPhone'] ?? 'Not set', theme),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value, ThemeData theme) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: theme.textTheme.bodySmall?.color?.withOpacity(0.6)),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
+            const SizedBox(height: 2),
+            Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditForm(ThemeData theme, TextTheme textTheme) {
+    final isVolunteer = _profile?['isVolunteer'] == true;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      child: Column(
+        children: [
+          _buildSectionCard(
+            title: 'Personal Details',
+            icon: Icons.person_outline,
+            theme: theme,
+            children: [
+              _buildEditField(controller: _nameController, label: 'Full Name', icon: Icons.person_outline, theme: theme),
+              const SizedBox(height: 12),
+              _buildEditField(controller: _usernameController, label: 'Username', icon: Icons.alternate_email, theme: theme),
+              const SizedBox(height: 12),
+              _buildEditField(controller: _emailController, label: 'Email Address', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, theme: theme),
+              const SizedBox(height: 12),
+              _buildEditField(controller: _phoneController, label: 'Phone Number', icon: Icons.phone_outlined, keyboardType: TextInputType.phone, theme: theme),
+              const SizedBox(height: 12),
+              _buildEditField(
+                controller: _volunteerIdController,
+                label: 'Volunteer ID (optional)',
+                icon: Icons.badge_outlined,
+                hint: 'Enter to access volunteer features',
+                theme: theme,
+              ),
+            ],
+          ),
+
+          if (isVolunteer) ...[
+            _buildSectionCard(
+              title: 'Volunteer Profile',
+              icon: Icons.volunteer_activism_outlined,
+              theme: theme,
+              children: [
+                _buildLabel("Age Range *", textTheme),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: ["Under 18", "18-30", "31-50", "51+"].map((age) {
+                    final isSel = _selectedAgeRange == age;
+                    return ChoiceChip(
+                      label: Text(age),
+                      selected: isSel,
+                      onSelected: (selected) {
+                        setState(() => _selectedAgeRange = selected ? age : null);
+                      },
+                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
+                      labelStyle: TextStyle(
+                        color: isSel ? theme.colorScheme.primary : null,
+                        fontWeight: isSel ? FontWeight.bold : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                _buildLabel("Availability *", textTheme),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: ["Full time", "Weekends only", "On-call"].map((avail) {
+                    final isSel = _selectedAvailability == avail;
+                    return ChoiceChip(
+                      label: Text(avail),
+                      selected: isSel,
+                      onSelected: (selected) {
+                        setState(() => _selectedAvailability = selected ? avail : null);
+                      },
+                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
+                      labelStyle: TextStyle(
+                        color: isSel ? theme.colorScheme.primary : null,
+                        fontWeight: isSel ? FontWeight.bold : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                _buildLabel("Physical Fitness Level *", textTheme),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: ["Low", "Medium", "High"].map((fit) {
+                    final isSel = _selectedFitness == fit;
+                    return ChoiceChip(
+                      label: Text(fit),
+                      selected: isSel,
+                      onSelected: (selected) {
+                        setState(() => _selectedFitness = selected ? fit : null);
+                      },
+                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
+                      labelStyle: TextStyle(
+                        color: isSel ? theme.colorScheme.primary : null,
+                        fontWeight: isSel ? FontWeight.bold : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                _buildEditField(
+                  controller: _locationController,
+                  label: 'Area / District of Service',
+                  icon: Icons.map_outlined,
+                  theme: theme,
+                ),
+              ],
+            ),
+
+            _buildSectionCard(
+              title: 'Emergency Contact',
+              icon: Icons.contact_emergency_outlined,
+              theme: theme,
+              children: [
+                _buildEditField(controller: _contactNameController, label: 'Emergency Contact Name', icon: Icons.person_pin_outlined, theme: theme),
+                const SizedBox(height: 12),
+                _buildEditField(controller: _contactPhoneController, label: 'Emergency Contact Phone', icon: Icons.phone_iphone_outlined, keyboardType: TextInputType.phone, theme: theme),
+              ],
+            ),
+
+            _buildSectionCard(
+              title: 'Skills & Languages',
+              icon: Icons.auto_awesome_outlined,
+              theme: theme,
+              children: [
+                _buildLabel("Languages Spoken (Select all that apply) *", textTheme),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _availableLanguages.map((lang) {
+                    final isSel = _selectedLanguages.contains(lang);
+                    return FilterChip(
+                      label: Text(lang),
+                      selected: isSel,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedLanguages.add(lang);
+                          } else {
+                            _selectedLanguages.remove(lang);
+                          }
+                        });
+                      },
+                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
+                      checkmarkColor: theme.colorScheme.primary,
+                      labelStyle: TextStyle(
+                        color: isSel ? theme.colorScheme.primary : null,
+                        fontWeight: isSel ? FontWeight.bold : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                _buildLabel("Your Skills (Select all that apply) *", textTheme),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _availableSkills.map((skill) {
+                    final isSel = _selectedSkills.contains(skill);
+                    return FilterChip(
+                      label: Text(skill),
+                      selected: isSel,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedSkills.add(skill);
+                          } else {
+                            _selectedSkills.remove(skill);
+                          }
+                        });
+                      },
+                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
+                      checkmarkColor: theme.colorScheme.primary,
+                      labelStyle: TextStyle(
+                        color: isSel ? theme.colorScheme.primary : null,
+                        fontWeight: isSel ? FontWeight.bold : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 8),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _saveProfile,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Save Changes'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? hint,
+    TextInputType? keyboardType,
+    required ThemeData theme,
+  }) {
+    return TextField(
+      controller: controller,
+      style: theme.textTheme.bodyMedium,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: theme.textTheme.bodySmall,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        isDense: true,
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text, TextTheme textTheme) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(text, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -656,89 +1206,7 @@ class _ProfileHero extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Edit Form  (unchanged from original)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _EditForm extends StatelessWidget {
-  const _EditForm({
-    required this.nameController,
-    required this.usernameController,
-    required this.volunteerIdController,
-    required this.isSaving,
-    required this.onSave,
-  });
-
-  final TextEditingController nameController;
-  final TextEditingController usernameController;
-  final TextEditingController volunteerIdController;
-  final bool isSaving;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
-      ),
-      child: Column(
-        children: [
-          _FormField(controller: nameController, label: 'Full Name', icon: Icons.person_outline),
-          const SizedBox(height: 12),
-          _FormField(controller: usernameController, label: 'Username', icon: Icons.alternate_email),
-          const SizedBox(height: 12),
-          _FormField(
-            controller: volunteerIdController,
-            label: 'Volunteer ID (optional)',
-            icon: Icons.badge_outlined,
-            hint: 'Enter to access volunteer features',
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: isSaving ? null : onSave,
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-              child: isSaving
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Save Changes'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FormField extends StatelessWidget {
-  const _FormField({required this.controller, required this.label, required this.icon, this.hint});
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final String? hint;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return TextField(
-      controller: controller,
-      style: theme.textTheme.bodyMedium,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        labelStyle: theme.textTheme.bodySmall,
-        prefixIcon: Icon(icon),
-        border: const OutlineInputBorder(),
-        isDense: true,
-      ),
-    );
-  }
-}
+// Helper classes removed. Inline _buildEditForm is used now.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stats Grid  ← UPDATED: tappable cards with volunteer lock indicator
