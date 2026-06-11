@@ -27,11 +27,11 @@ class VolunteerPage extends StatelessWidget {
           foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
           elevation: 0,
           centerTitle: true,
-          title: Text(
-            l10n.my_tasks,
-            style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface, letterSpacing: -0.5),
-          ),
-          bottom: PreferredSize(
+          // title: Text(
+          //   l10n.my_tasks,
+          //   style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface, letterSpacing: -0.5),
+          // ),
+          title: PreferredSize(
             preferredSize: const Size.fromHeight(60),
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
