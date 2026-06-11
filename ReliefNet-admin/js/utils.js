@@ -27,8 +27,14 @@ export function urgencyBadge(u) {
 
 export function statusBadge(s) {
   if (!s) return '—';
-  const cls = s === 'completed' ? 'badge-completed' : s === 'in_progress' ? 'badge-in_progress' : 'badge-active';
-  return `<span class="badge ${cls}">${s}</span>`;
+  let cls = 'badge-active';
+  if (s === 'completed') cls = 'badge-completed';
+  else if (s === 'in_progress') cls = 'badge-in_progress';
+  else if (s === 'suspected_spam' || s === 'flagged') cls = 'badge-red';
+  else if (s === 'verified') cls = 'badge-green';
+
+  const label = s.replace('_', ' ');
+  return `<span class="badge ${cls}">${label}</span>`;
 }
 
 export function appStatusBadge(s) {
