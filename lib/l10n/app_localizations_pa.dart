@@ -141,7 +141,7 @@ class AppLocalizationsPa extends AppLocalizations {
   String get apply_as_volunteer => 'ਵਾਲੰਟੀਅਰ ਵਜੋਂ ਅਪਲਾਈ ਕਰੋ';
 
   @override
-  String get my_tasks => 'ਮੇਰੇ ਕੰਮ';
+  String get my_tasks => 'ਵਾਲੰਟੀਅਰ ਡੈਸ਼ਬੋਰਡ';
 
   @override
   String get application_status => 'ਅਰਜ਼ੀ ਦੀ ਸਥਿਤੀ';

@@ -141,7 +141,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get apply_as_volunteer => 'स्वयंसेवक के रूप में आवेदन करें';
 
   @override
-  String get my_tasks => 'मेरे कार्य';
+  String get my_tasks => 'स्वयंसेवक डैशबोर्ड';
 
   @override
   String get application_status => 'आवेदन की स्थिति';

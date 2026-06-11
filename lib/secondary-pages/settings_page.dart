@@ -8,7 +8,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:reliefnet/themes/theme_provider.dart';
 import 'package:reliefnet/themes/locale_provider.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
-import 'package:reliefnet/onboarding/onboarding_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});

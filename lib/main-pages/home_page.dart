@@ -24,6 +24,7 @@ class Homepage extends StatefulWidget {
 class _HomepageState extends State<Homepage> {
   int selectedindex = 0;
   bool _isVolunteer = false;
+  final GlobalKey<DashboardPageState> _dashboardKey = GlobalKey<DashboardPageState>();
 
   late List<Widget> _pages;
 
@@ -42,14 +43,24 @@ class _HomepageState extends State<Homepage> {
         },
         onNavigateToApply: () => setState(() => selectedindex = 4),
         onNavigateToVolunteer: () => setState(() => selectedindex = 3),
+        onNavigateToHeatMap: () => setState(() => selectedindex = 7),
       ),
       const ReportPage(),
-      const DashboardPage(),
+      DashboardPage(key: _dashboardKey),
       const VolunteerPage(),
       const ApplyVolunteerPage(),
       const ProfilePage(),
       const SettingsPage(),
-      const HeatMapPage(),
+      HeatMapPage(
+        onReportSelected: (docId) {
+          setState(() {
+            selectedindex = 2;
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _dashboardKey.currentState?.openReportById(docId);
+          });
+        },
+      ),
     ];
     _checkVolunteerStatus();
   }
@@ -76,6 +87,7 @@ class _HomepageState extends State<Homepage> {
               },
               onNavigateToApply: () => setState(() => selectedindex = 4),
               onNavigateToVolunteer: () => setState(() => selectedindex = 3),
+              onNavigateToHeatMap: () => setState(() => selectedindex = 7),
             );
           });
         }
@@ -200,6 +212,7 @@ class HomeContent extends StatelessWidget {
   final VoidCallback onNavigateToApply;
   final VoidCallback onNavigateToVolunteer;
   final VoidCallback onNavigateToHospitals;
+  final VoidCallback onNavigateToHeatMap;
 
   const HomeContent({
     super.key,
@@ -208,6 +221,7 @@ class HomeContent extends StatelessWidget {
     required this.onNavigateToApply,
     required this.onNavigateToVolunteer,
     required this.onNavigateToHospitals,
+    required this.onNavigateToHeatMap,
   });
 
   @override
@@ -238,6 +252,70 @@ class HomeContent extends StatelessWidget {
             style: textTheme.bodyMedium,
           ),
           const SizedBox(height: 20),
+          if (isVolunteer) ...[
+            GestureDetector(
+              onTap: onNavigateToHeatMap,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.indigo.shade500, Colors.deepPurple.shade700],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.indigo.shade300.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.map_rounded, color: Colors.white, size: 30),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Crisis Heat Map",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Analyze real-time report concentrations & hotspots",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 18),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           GestureDetector(
             onTap: onNavigateToReport,
             child: Container(

@@ -6,7 +6,8 @@ import 'package:flutter_map_heatmap/flutter_map_heatmap.dart';
 import 'package:geolocator/geolocator.dart';
 
 class HeatMapPage extends StatefulWidget {
-  const HeatMapPage({super.key});
+  final Function(String docId)? onReportSelected;
+  const HeatMapPage({super.key, this.onReportSelected});
 
   @override
   State<HeatMapPage> createState() => _HeatMapPageState();
@@ -95,13 +96,31 @@ class _HeatMapPageState extends State<HeatMapPage> {
             markers.add(
               Marker(
                 point: point,
-                width: 12,
-                height: 12,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: mColor.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1),
+                width: 32,
+                height: 32,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (widget.onReportSelected != null) {
+                      widget.onReportSelected!(doc.id);
+                    }
+                  },
+                  child: Center(
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: mColor.withValues(alpha: 0.8),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -125,11 +144,22 @@ class _HeatMapPageState extends State<HeatMapPage> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: isDark 
-                    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  subdomains: const ['a', 'b', 'c'],
+                  urlTemplate: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
                   userAgentPackageName: 'com.reliefnet.app',
+                  tileBuilder: (context, tileWidget, tile) {
+                    if (isDark) {
+                      return ColorFiltered(
+                        colorFilter: const ColorFilter.matrix(<double>[
+                          -1.0, 0.0, 0.0, 0.0, 255.0,
+                          0.0, -1.0, 0.0, 0.0, 255.0,
+                          0.0, 0.0, -1.0, 0.0, 255.0,
+                          0.0, 0.0, 0.0, 1.0, 0.0,
+                        ]),
+                        child: tileWidget,
+                      );
+                    }
+                    return tileWidget;
+                  },
                 ),
                 if (heatData.isNotEmpty)
                   HeatMapLayer(
@@ -191,7 +221,7 @@ class _HeatMapPageState extends State<HeatMapPage> {
             // FABs
             Positioned(
               bottom: 16,
-              right: 16,
+              left: 16,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

@@ -141,7 +141,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get apply_as_volunteer => 'Apply as Volunteer';
 
   @override
-  String get my_tasks => 'My Tasks';
+  String get my_tasks => 'Volunteer Dashboard';
 
   @override
   String get application_status => 'Application status';
