@@ -7,15 +7,17 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:reliefnet/services/gemini_service.dart';
 import 'package:reliefnet/widgets/ai_summary_card.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  State<DashboardPage> createState() => DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveClientMixin {
+class DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveClientMixin {
   String _selectedFilter = 'All';
   String _selectedSort = 'Nearest';
   Position? _userPosition;
@@ -213,6 +215,19 @@ class _DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveCl
     );
   }
 
+  Future<void> openReportById(String docId) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('reports').doc(docId).get();
+      if (doc.exists && mounted) {
+        final data = doc.data() as Map<String, dynamic>;
+        final l10n = AppLocalizations.of(context)!;
+        _showReportDetail(context, data, docId, l10n);
+      }
+    } catch (e) {
+      debugPrint("Error opening report: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -261,8 +276,24 @@ class _DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveCl
                             ],
                           ),
                         ),
-                        if (_fetchingLocation) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        else if (_userPosition != null) Icon(Icons.location_on, size: 16, color: theme.colorScheme.primary)
+                        if (_fetchingLocation) ...[
+                          const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                          const SizedBox(width: 12),
+                        ] else if (_userPosition != null) ...[
+                          Icon(Icons.location_on, size: 18, color: theme.colorScheme.primary),
+                          const SizedBox(width: 12),
+                        ],
+                        IconButton(
+                          icon: const Icon(Icons.refresh_rounded),
+                          onPressed: () {
+                            _fetchUserLocation();
+                            setState(() {
+                              _summaryRequested = false;
+                              _aiDashboardSummary = null;
+                            });
+                          },
+                          tooltip: 'Reload Reports',
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -565,21 +596,88 @@ class _ReportDetailSheet extends StatelessWidget {
     final lng = data['lng'] as double?;
     if (lat == null || lng == null) return Text('No location data', style: theme.textTheme.bodyMedium);
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    final assigned = List<String>.from(data['assignedVolunteers'] ?? []);
-    final alreadyAccepted = assigned.contains(uid);
+    final isDark = theme.brightness == Brightness.dark;
+    final point = LatLng(lat, lng);
 
-    if (alreadyAccepted || _status == 'completed') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [Icon(Icons.near_me_outlined, size: 14, color: theme.textTheme.bodyMedium?.color), const SizedBox(width: 6), Text(distanceLabel, style: theme.textTheme.bodyMedium)]),
-          const SizedBox(height: 12),
-          SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: () async { final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng'); if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication); }, icon: const Icon(Icons.open_in_new, size: 16), label: Text(l10n.open_in_google_maps))),
-        ],
-      );
-    }
-    return Row(children: [Icon(Icons.lock_outline, size: 14, color: theme.colorScheme.primary.withOpacity(0.6)), const SizedBox(width: 8), Expanded(child: Text('$distanceLabel · Accept task to view map', style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13)))]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.near_me_outlined, size: 14, color: theme.textTheme.bodyMedium?.color),
+            const SizedBox(width: 6),
+            Text(distanceLabel, style: theme.textTheme.bodyMedium),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 180,
+            width: double.infinity,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: point,
+                initialZoom: 14.0,
+                maxZoom: 18,
+                minZoom: 3,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                ),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                  userAgentPackageName: 'com.reliefnet.app',
+                  tileBuilder: (context, tileWidget, tile) {
+                    if (isDark) {
+                      return ColorFiltered(
+                        colorFilter: const ColorFilter.matrix(<double>[
+                          -1.0, 0.0, 0.0, 0.0, 255.0,
+                          0.0, -1.0, 0.0, 0.0, 255.0,
+                          0.0, 0.0, -1.0, 0.0, 255.0,
+                          0.0, 0.0, 0.0, 1.0, 0.0,
+                        ]),
+                        child: tileWidget,
+                      );
+                    }
+                    return tileWidget;
+                  },
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: point,
+                      width: 40,
+                      height: 40,
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 36,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: Text(l10n.open_in_google_maps),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildActionButton(BuildContext context, ThemeData theme, AppLocalizations l10n) {

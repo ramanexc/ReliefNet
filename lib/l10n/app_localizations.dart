@@ -367,7 +367,7 @@ abstract class AppLocalizations {
   /// No description provided for @my_tasks.
   ///
   /// In en, this message translates to:
-  /// **'My Tasks'**
+  /// **'Volunteer Dashboard'**
   String get my_tasks;
 
   /// No description provided for @application_status.
