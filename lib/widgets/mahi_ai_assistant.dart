@@ -90,17 +90,31 @@ class _MahiAiAssistantState extends State<MahiAiAssistant> with SingleTickerProv
     _scrollToBottom();
 
     try {
-      final prompt = """You are Mahi, the specialized AI assistant for ReliefNet. 
-Your personality: Empathetic, highly efficient, and expert in disaster relief protocols.
-Your Goal: Help field agents and victims with immediate, actionable advice and platform navigation.
+      final historyBuffer = StringBuffer();
+      for (final msg in _messages.take(_messages.length - 1)) {
+        final role = msg['role'] == 'user' ? 'User' : 'Mahi';
+        historyBuffer.writeln("$role: ${msg['content']}");
+      }
 
-Specific Knowledge:
-- If asked about medical emergencies, emphasize finding the nearest hospital via the Home screen's 'Nearby Hospitals' tool.
-- For first aid, provide clear, step-by-step instructions.
-- For disaster protocols (Fire, Flood, Earthquake), give immediate safety steps.
-- Keep responses concise and formatted for mobile reading.
+      final prompt = """You are Mahi, the specialized AI assistant for ReliefNet, a disaster response and relief platform.
+Your personality: Empathetic, calm, highly structured, and expert in emergency response protocols.
+Your Goal: Assist field agents, volunteers, and disaster victims with immediate, actionable safety steps, first aid instructions, and platform navigation.
 
-User asks: $text""";
+Formatting Guidelines:
+- Keep responses concise, clear, and optimized for mobile reading.
+- Use bullet points or numbered lists for step-by-step guides.
+- Always double-check markdown syntax (like bold asterisks `**`) and ensure all tags are closed properly (never left dangling).
+- Avoid raw technical jargon; use clear, reassuring language.
+
+Platform Navigation Info:
+- "Nearby Hospitals": Accessible from the Home screen, lists nearest hospitals with contact info and capacity.
+- "Report an Issue": Accessible from the Home screen, allows users to report emergency status, infrastructure damage, and supply needs.
+- "Crisis Heat Map": Accessible from the Drawer and Home screen ONLY for active volunteers, shows real-time report concentrations.
+
+Conversation History:
+${historyBuffer.toString()}
+User asks: $text
+Mahi:""";
       final response = await GeminiService.mahiChat(prompt);
       
       if (mounted) {
@@ -132,6 +146,18 @@ User asks: $text""";
         type: MaterialType.transparency,
         child: Stack(
           children: [
+            // Background tap/scroll detector to close chat when clicking/dragging outside
+            if (_isChatOpen)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onPanDown: (_) {
+                    if (_isChatOpen) {
+                      _toggleChat();
+                    }
+                  },
+                ),
+              ),
             // Chat Window
             AnimatedPositioned(
               duration: const Duration(milliseconds: 300),
@@ -271,14 +297,23 @@ User asks: $text""";
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                           decoration: BoxDecoration(
-                                            border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                                            color: Theme.of(context).brightness == Brightness.dark
+                                                ? Colors.grey[850]
+                                                : Colors.grey[50],
+                                            border: Border.all(
+                                              color: Theme.of(context).primaryColor.withOpacity(
+                                                Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.2,
+                                              ),
+                                            ),
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Text(
                                             _quickQuestions[index],
                                             style: TextStyle(
                                               fontSize: 13,
-                                              color: Theme.of(context).primaryColor,
+                                              color: Theme.of(context).brightness == Brightness.dark
+                                                  ? Colors.white
+                                                  : Theme.of(context).primaryColor,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -299,12 +334,30 @@ User asks: $text""";
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 4),
                                       child: ActionChip(
+                                        backgroundColor: Theme.of(context).brightness == Brightness.dark
+                                            ? Colors.grey[850]
+                                            : Colors.grey[100],
+                                        side: BorderSide(
+                                          color: Theme.of(context).primaryColor.withOpacity(
+                                            Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.2,
+                                          ),
+                                          width: 1,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
                                         label: Text(
                                           _quickQuestions[index],
-                                          style: const TextStyle(fontSize: 11),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Theme.of(context).brightness == Brightness.dark
+                                                ? Colors.white
+                                                : Theme.of(context).primaryColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                         onPressed: () => _sendMessage(predefinedText: _quickQuestions[index]),
-                                        padding: EdgeInsets.zero,
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
                                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                       ),
                                     );
