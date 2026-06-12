@@ -330,7 +330,7 @@ class _LoginPageState extends State<LoginPage> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => Scaffold(appBar: AppBar(title: const Text("Emergency Report")), body: const ReportPage())));
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => Scaffold(appBar: AppBar(title: const Text("Emergency Report")), body: const ReportPage(isEmergency: true))));
                       },
                       icon: const Icon(Icons.emergency_share),
                       label: const Text("Report Emergency Anonymously", style: TextStyle(fontWeight: FontWeight.bold)),
