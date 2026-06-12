@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async' as async;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,10 +12,12 @@ import 'package:share_plus/share_plus.dart';
 import 'package:reliefnet/services/gemini_service.dart';
 import 'package:reliefnet/widgets/ai_summary_card.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
+import 'package:reliefnet/services/offline_report_service.dart';
 import 'dart:math' as math;
 
 class ReportPage extends StatefulWidget {
-  const ReportPage({super.key});
+  final bool isEmergency;
+  const ReportPage({super.key, this.isEmergency = false});
 
   @override
   State<ReportPage> createState() => _ReportPageState();
@@ -25,22 +28,69 @@ class _ReportPageState extends State<ReportPage> {
 
   String? _issueType;
   String? _urgency;
-  String _description = '';
   bool _isSubmitting = false;
   final _descController = TextEditingController();
   final _mathAnswerController = TextEditingController();
+
+  // New state variables for the redesign
+  bool _isLifeThreatening = false;
+  final List<String> _selectedLifeThreateningScenarios = [];
+  final List<String> _selectedNeeds = [];
+  String? _peopleAffected;
+  final _landmarkController = TextEditingController();
+  bool _allowContact = false;
+  final _phoneController = TextEditingController();
+  final _altPhoneController = TextEditingController();
+  double? _accuracy;
+  DateTime? _locationTimestamp;
+  async.Timer? _debounce;
 
   int _num1 = 0;
   int _num2 = 0;
   String _mathOperation = '+';
   int _correctMathResult = 0;
 
+  int _offlineDraftsCount = 0;
+  String _syncStatusText = '';
+  bool _isSyncRunning = false;
+
   @override
   void initState() {
     super.initState();
+    _isLifeThreatening = widget.isEmergency;
+    if (_isLifeThreatening) {
+      _urgency = 'High';
+    }
+    _descController.addListener(_onDescriptionChanged);
     if (FirebaseAuth.instance.currentUser == null) {
       _generateMathChallenge();
     }
+    _refreshOfflineCount().then((_) {
+      _startOfflineSync();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map<String, dynamic> && args['isEmergency'] == true) {
+      _isLifeThreatening = true;
+      _urgency = 'High';
+    } else if (args is bool && args == true) {
+      _isLifeThreatening = true;
+      _urgency = 'High';
+    }
+  }
+
+  void _onDescriptionChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = async.Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        _checkAndTriggerAiAnalysis();
+      }
+    });
+    setState(() {}); // to refresh verification score dynamically as they type
   }
 
   void _generateMathChallenge() {
@@ -66,12 +116,16 @@ class _ReportPageState extends State<ReportPage> {
 
   @override
   void dispose() {
+    _descController.removeListener(_onDescriptionChanged);
     _descController.dispose();
     _mathAnswerController.dispose();
+    _landmarkController.dispose();
+    _phoneController.dispose();
+    _altPhoneController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
-  String _locationText = '';
   double? _latitude;
   double? _longitude;
   bool _isFetchingLocation = false;
@@ -79,36 +133,121 @@ class _ReportPageState extends State<ReportPage> {
   final List<XFile> _mediaFiles = [];
   final ImagePicker _picker = ImagePicker();
 
-  final List<String> _issueTypes = ['Food', 'Medical', 'Shelter', 'Other'];
-  final List<String> _urgencyLevels = ['Low', 'Medium', 'High'];
-
   bool _isAnalyzing = false;
   Map<String, dynamic>? _liveAiSummary;
 
-  Future<void> _generateLiveSummary(AppLocalizations l10n) async {
-    if (_issueType == null ||
-        _urgency == null ||
-        _descController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${l10n.select_issue_type}, ${l10n.select_urgency}, and enter a description first',
-          ),
-        ),
-      );
-      return;
-    }
+  final List<Map<String, dynamic>> _newIssueTypesList = [
+    {
+      'name': 'Food Assistance',
+      'icon': Icons.restaurant,
+      'color': Colors.orange,
+    },
+    {
+      'name': 'Medical Assistance',
+      'icon': Icons.medical_services,
+      'color': Colors.red,
+    },
+    {'name': 'Shelter Assistance', 'icon': Icons.house, 'color': Colors.indigo},
+    {
+      'name': 'Water & Sanitation',
+      'icon': Icons.water_drop,
+      'color': Colors.blue,
+    },
+    {
+      'name': 'Rescue Required',
+      'icon': Icons.volunteer_activism,
+      'color': Colors.redAccent,
+    },
+    {
+      'name': 'Utilities & Infrastructure',
+      'icon': Icons.build,
+      'color': Colors.amber,
+    },
+    {'name': 'Other', 'icon': Icons.more_horiz, 'color': Colors.grey},
+  ];
 
-    setState(() => _isAnalyzing = true);
-    try {
-      final summary = await GeminiService.analyzeReport(
-        issueType: _issueType!,
-        urgency: _urgency!,
-        description: _descController.text,
-      );
-      setState(() => _liveAiSummary = summary);
-    } finally {
-      setState(() => _isAnalyzing = false);
+  int _calculateVerificationScore() {
+    int score = 0;
+    if (_latitude != null) score += 25;
+    if (_mediaFiles.isNotEmpty) score += 25;
+    if (_descController.text.trim().length >= 15) score += 25;
+    if (_allowContact && _phoneController.text.trim().length >= 10) score += 25;
+    return score;
+  }
+
+  List<String> _getNeedsForCategory(String? category) {
+    if (category == null) return [];
+    final cat = category.toLowerCase();
+    if (cat.contains('food')) {
+      return ["Drinking Water", "Dry Rations", "Baby Food", "Cooking Supplies"];
+    } else if (cat.contains('medical')) {
+      return ["First Aid", "Ambulance", "Medicines", "Doctor Required"];
+    } else if (cat.contains('shelter')) {
+      return ["Temporary Shelter", "Blankets", "Clothing", "Toilets"];
+    } else if (cat.contains('water') || cat.contains('sanitation')) {
+      return [
+        "Drinking Water",
+        "Water Purification",
+        "Tanker Supply",
+        "Toilets",
+      ];
+    } else if (cat.contains('rescue')) {
+      return ["Evacuation", "Search & Rescue", "Transport Assistance"];
+    }
+    return [];
+  }
+
+  void _applyDescriptionTemplate(String category) {
+    if (_descController.text.trim().isNotEmpty)
+      return; // don't overwrite user's typing
+    final cat = category.toLowerCase();
+    if (cat.contains('food')) {
+      _descController.text =
+          "No food available for ___ days. Approximately ___ people affected. Immediate assistance required.";
+    } else if (cat.contains('medical')) {
+      _descController.text =
+          "Describe injury or illness:\nNumber of affected individuals:\nCurrent condition and urgency:";
+    } else if (cat.contains('shelter')) {
+      _descController.text =
+          "Temporary shelter needed for ___ people. Current weather conditions. Specific vulnerabilities:";
+    } else if (cat.contains('water')) {
+      _descController.text =
+          "No drinking water available. Water source contaminated/depleted. Needs for ___ people.";
+    } else if (cat.contains('rescue')) {
+      _descController.text =
+          "Evacuation required for ___ people. Risk: (e.g. rising waters/building crash). Any trapped individuals?";
+    }
+    setState(() {});
+  }
+
+  Future<void> _checkAndTriggerAiAnalysis() async {
+    if (_isAnalyzing) return;
+    if (_issueType != null &&
+        _latitude != null &&
+        _descController.text.trim().length >= 10 &&
+        _mediaFiles.isNotEmpty) {
+      setState(() {
+        _isAnalyzing = true;
+        _liveAiSummary = null;
+      });
+      try {
+        final summary = await GeminiService.analyzeReport(
+          issueType: _issueType!,
+          urgency: _urgency ?? 'Medium',
+          description: _descController.text.trim(),
+        );
+        if (mounted) {
+          setState(() {
+            _liveAiSummary = summary;
+          });
+        }
+      } catch (e) {
+        print("Auto AI analysis failed: $e");
+      } finally {
+        if (mounted) {
+          setState(() => _isAnalyzing = false);
+        }
+      }
     }
   }
 
@@ -134,22 +273,34 @@ class _ReportPageState extends State<ReportPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: Text('Take Photo', style: Theme.of(context).textTheme.bodyMedium),
+              title: Text(
+                'Take Photo',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               onTap: () => Navigator.pop(ctx, 'camera_photo'),
             ),
             ListTile(
               leading: const Icon(Icons.videocam),
-              title: Text('Record Video', style: Theme.of(context).textTheme.bodyMedium),
+              title: Text(
+                'Record Video',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               onTap: () => Navigator.pop(ctx, 'camera_video'),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: Text('Photo from Gallery', style: Theme.of(context).textTheme.bodyMedium),
+              title: Text(
+                'Photo from Gallery',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               onTap: () => Navigator.pop(ctx, 'gallery_photo'),
             ),
             ListTile(
               leading: const Icon(Icons.video_library),
-              title: Text('Video from Gallery', style: Theme.of(context).textTheme.bodyMedium),
+              title: Text(
+                'Video from Gallery',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               onTap: () => Navigator.pop(ctx, 'gallery_video'),
             ),
           ],
@@ -161,19 +312,40 @@ class _ReportPageState extends State<ReportPage> {
     XFile? file;
     switch (choice) {
       case 'camera_photo':
-        file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 75);
+        file = await _picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 60,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        );
         break;
       case 'camera_video':
-        file = await _picker.pickVideo(source: ImageSource.camera, maxDuration: const Duration(seconds: 60));
+        file = await _picker.pickVideo(
+          source: ImageSource.camera,
+          maxDuration: const Duration(seconds: 15),
+        );
         break;
       case 'gallery_photo':
-        file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
+        file = await _picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 60,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        );
         break;
       case 'gallery_video':
-        file = await _picker.pickVideo(source: ImageSource.gallery);
+        file = await _picker.pickVideo(
+          source: ImageSource.gallery,
+          maxDuration: const Duration(seconds: 15),
+        );
         break;
     }
-    if (file != null) setState(() => _mediaFiles.add(file!));
+    if (file != null) {
+      setState(() {
+        _mediaFiles.add(file!);
+        _checkAndTriggerAiAnalysis();
+      });
+    }
   }
 
   void _removeMedia(int index) => setState(() => _mediaFiles.removeAt(index));
@@ -190,21 +362,96 @@ class _ReportPageState extends State<ReportPage> {
     for (final file in _mediaFiles) {
       final ext = p.extension(file.name);
       final fileName = '${DateTime.now().millisecondsSinceEpoch}$ext';
-      final ref = FirebaseStorage.instance.ref().child('reports/$uid/$docId/$fileName');
+      final ref = FirebaseStorage.instance.ref().child(
+        'reports/$uid/$docId/$fileName',
+      );
       await ref.putFile(File(file.path));
       urls.add(await ref.getDownloadURL());
     }
     return urls;
   }
 
+  void _clearFormFields() {
+    _formKey.currentState?.reset();
+    _descController.clear();
+    _landmarkController.clear();
+    _phoneController.clear();
+    _altPhoneController.clear();
+    setState(() {
+      _issueType = null;
+      _urgency = null;
+      _latitude = null;
+      _longitude = null;
+      _accuracy = null;
+      _locationTimestamp = null;
+      _mediaFiles.clear();
+      _liveAiSummary = null;
+      _isLifeThreatening = false;
+      _selectedLifeThreateningScenarios.clear();
+      _selectedNeeds.clear();
+      _peopleAffected = null;
+      _allowContact = false;
+      if (FirebaseAuth.instance.currentUser == null) {
+        _mathAnswerController.clear();
+        _generateMathChallenge();
+      }
+    });
+  }
+
+  Future<void> _refreshOfflineCount() async {
+    final count = await OfflineReportService.getOfflineCount();
+    if (mounted) {
+      setState(() {
+        _offlineDraftsCount = count;
+      });
+    }
+  }
+
+  Future<void> _startOfflineSync() async {
+    if (_isSyncRunning) return;
+    final count = await OfflineReportService.getOfflineCount();
+    if (count == 0) return;
+
+    if (!await OfflineReportService.hasInternet()) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isSyncRunning = true;
+        _syncStatusText = "Syncing $count offline report(s)...";
+      });
+    }
+
+    await OfflineReportService.syncOfflineReports(
+      onStatusUpdate: (status) {
+        if (mounted) {
+          setState(() {
+            _syncStatusText = status;
+          });
+        }
+      },
+    );
+
+    await _refreshOfflineCount();
+    if (mounted) {
+      setState(() {
+        _isSyncRunning = false;
+        _syncStatusText = '';
+      });
+    }
+  }
+
   Future<void> _submitForm(AppLocalizations l10n) async {
     if (!_formKey.currentState!.validate()) return;
-    
-    // 1. Mandatory Media Check
-    if (_mediaFiles.isEmpty) {
+
+    // 1. Mandatory Media Check (optional in life-threatening emergencies)
+    if (_mediaFiles.isEmpty && !_isLifeThreatening) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Visual proof is mandatory. Please attach at least one photo of the incident."),
+          content: Text(
+            "Visual proof is mandatory. Please attach at least one photo of the incident.",
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -212,22 +459,24 @@ class _ReportPageState extends State<ReportPage> {
     }
 
     if (_latitude == null || _longitude == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.fetch_location_hint)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.fetch_location_hint)));
       return;
     }
     _formKey.currentState!.save();
 
     final user = FirebaseAuth.instance.currentUser;
-    
+
     // Math Bot Check for anonymous users
     if (user == null) {
       final userValue = int.tryParse(_mathAnswerController.text.trim());
       if (userValue != _correctMathResult) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Bot check failed: Incorrect math answer. Please try again.'),
+            content: Text(
+              'Bot check failed: Incorrect math answer. Please try again.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -242,6 +491,57 @@ class _ReportPageState extends State<ReportPage> {
     final submittedDesc = _descController.text;
     final submittedLat = _latitude!;
     final submittedLng = _longitude!;
+
+    // Connection Check
+    final hasConnection = await OfflineReportService.hasInternet();
+    if (!hasConnection) {
+      setState(() => _isSubmitting = true);
+      try {
+        final List<String> tempMediaPaths = _mediaFiles
+            .map((f) => f.path)
+            .toList();
+        await OfflineReportService.saveReportOffline(
+          issueType: submittedType,
+          urgency: submittedUrgency,
+          description: submittedDesc,
+          latitude: submittedLat,
+          longitude: submittedLng,
+          accuracy: _accuracy,
+          isLifeThreatening: _isLifeThreatening,
+          lifeThreateningScenarios: _selectedLifeThreateningScenarios,
+          immediateNeeds: _selectedNeeds,
+          peopleAffected: _peopleAffected,
+          landmark: _landmarkController.text.trim(),
+          allowContact: _allowContact,
+          contactPhone: _allowContact ? _phoneController.text.trim() : '',
+          contactAltPhone: _allowContact ? _altPhoneController.text.trim() : '',
+          tempMediaPaths: tempMediaPaths,
+        );
+
+        if (mounted) {
+          _clearFormFields();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "No internet. Report queued offline! It will upload automatically once connection is restored.",
+              ),
+              backgroundColor: Colors.amber,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Offline save error: ${e.toString()}')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+        _refreshOfflineCount();
+      }
+      return;
+    }
 
     setState(() => _isSubmitting = true);
 
@@ -260,16 +560,28 @@ class _ReportPageState extends State<ReportPage> {
         imageBytesList: imageBytesList.isNotEmpty ? imageBytesList : null,
       );
 
-      // 3. User Warning if suspected spam
-      if (credibility['status'] == 'suspected_spam' || credibility['isSpam'] == true) {
+      if (!mounted) return;
+
+      // 3. User Warning if suspected spam (skip warning for immediate life-threatening emergencies)
+      if (!_isLifeThreatening &&
+          (credibility['status'] == 'suspected_spam' ||
+              credibility['isSpam'] == true)) {
         final proceed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text("Low Credibility Detected"),
-            content: Text("Our AI system flagged this report as potentially unclear or unrelated to the photo. \n\nReason: ${credibility['reason']}\n\nAre you sure you want to submit?"),
+            content: Text(
+              "Our AI system flagged this report as potentially unclear or unrelated to the photo. \n\nReason: ${credibility['reason']}\n\nAre you sure you want to submit?",
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Edit Report")),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Submit Anyway")),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Edit Report"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text("Submit Anyway"),
+              ),
             ],
           ),
         );
@@ -292,13 +604,27 @@ class _ReportPageState extends State<ReportPage> {
         'lat': submittedLat,
         'lng': submittedLng,
         'timestamp': FieldValue.serverTimestamp(),
-        'status': credibility['status'] == 'suspected_spam' ? 'flagged' : 'unassigned',
+        'status': credibility['status'] == 'suspected_spam'
+            ? 'flagged'
+            : 'unassigned',
         'assignedVolunteers': [],
         'submittedBy': user?.uid ?? 'anonymous',
         'isAnonymous': user == null,
         'mediaUrls': mediaUrls,
         'aiSummary': null,
         'credibility': credibility, // Save AI verdict
+        // Redesign Phase 1 fields
+        'isLifeThreatening': _isLifeThreatening,
+        'lifeThreateningScenarios': _selectedLifeThreateningScenarios,
+        'immediateNeeds': _selectedNeeds,
+        'peopleAffected': _peopleAffected ?? 'Unknown',
+        'landmark': _landmarkController.text.trim(),
+        'allowContact': _allowContact,
+        'contactPhone': _allowContact ? _phoneController.text.trim() : '',
+        'contactAltPhone': _allowContact ? _altPhoneController.text.trim() : '',
+        'verificationScore': _calculateVerificationScore(),
+        'gpsAccuracy': _accuracy,
+        'locationTimestamp': _locationTimestamp,
       });
 
       final aiSummary = await GeminiService.analyzeReport(
@@ -312,22 +638,7 @@ class _ReportPageState extends State<ReportPage> {
       }
 
       if (mounted) {
-        _formKey.currentState!.reset();
-        _descController.clear();
-        setState(() {
-          _issueType = null;
-          _urgency = null;
-          _description = '';
-          _locationText = '';
-          _latitude = null;
-          _longitude = null;
-          _mediaFiles.clear();
-          _liveAiSummary = null;
-          if (FirebaseAuth.instance.currentUser == null) {
-            _mathAnswerController.clear();
-            _generateMathChallenge();
-          }
-        });
+        _clearFormFields();
 
         _showConfirmation(
           l10n: l10n,
@@ -341,9 +652,12 @@ class _ReportPageState extends State<ReportPage> {
           aiSummary: aiSummary,
         );
       }
+      _startOfflineSync();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -361,7 +675,8 @@ class _ReportPageState extends State<ReportPage> {
     required int mediaCount,
     Map<String, dynamic>? aiSummary,
   }) {
-    final shareText = 'ReliefNet Report\n─────────────────\nID: $docId\nIssue: $issueType\nUrgency: $urgency\nLocation: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}\nDescription: $description';
+    final shareText =
+        'ReliefNet Report\n─────────────────\nID: $docId\nIssue: $issueType\nUrgency: $urgency\nLocation: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}\nDescription: $description';
 
     showDialog(
       context: context,
@@ -373,15 +688,27 @@ class _ReportPageState extends State<ReportPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.green, size: 72),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: Colors.green,
+                size: 72,
+              ),
               const SizedBox(height: 12),
-              Text(l10n.report_submitted, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(
+                l10n.report_submitted,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 20),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Theme.of(ctx).colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                  color: Theme.of(
+                    ctx,
+                  ).colorScheme.surfaceContainerHighest.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -389,12 +716,22 @@ class _ReportPageState extends State<ReportPage> {
                   children: [
                     _summaryRow(l10n.issue_type, issueType),
                     const SizedBox(height: 8),
-                    _summaryRow(l10n.urgency_level, urgency, valueColor: _getUrgencyColor(urgency)),
+                    _summaryRow(
+                      l10n.urgency_level,
+                      urgency,
+                      valueColor: _getUrgencyColor(urgency),
+                    ),
                     const SizedBox(height: 8),
-                    _summaryRow(l10n.location, '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}'),
+                    _summaryRow(
+                      l10n.location,
+                      '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}',
+                    ),
                     if (mediaCount > 0) ...[
                       const SizedBox(height: 8),
-                      _summaryRow(l10n.photos_videos, '$mediaCount files uploaded'),
+                      _summaryRow(
+                        l10n.photos_videos,
+                        '$mediaCount files uploaded',
+                      ),
                     ],
                     const SizedBox(height: 8),
                     _summaryRow(l10n.description, description),
@@ -406,11 +743,19 @@ class _ReportPageState extends State<ReportPage> {
                 AiSummaryCard(aiSummary: aiSummary),
               ],
               const SizedBox(height: 16),
-              const Text('Report ID', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text(
+                'Report ID',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
               const SizedBox(height: 4),
               SelectableText(
                 docId,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 4),
@@ -422,13 +767,16 @@ class _ReportPageState extends State<ReportPage> {
                     label: Text(l10n.copy_id),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: docId));
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report ID copied')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Report ID copied')),
+                      );
                     },
                   ),
                   TextButton.icon(
                     icon: const Icon(Icons.share, size: 15),
                     label: Text(l10n.share),
-                    onPressed: () => Share.share(shareText, subject: 'ReliefNet Report'),
+                    onPressed: () =>
+                        Share.share(shareText, subject: 'ReliefNet Report'),
                   ),
                 ],
               ),
@@ -453,42 +801,100 @@ class _ReportPageState extends State<ReportPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 90, child: Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey))),
-        Expanded(child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: valueColor))),
+        SizedBox(
+          width: 90,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: valueColor,
+            ),
+          ),
+        ),
       ],
     );
   }
 
   Future<void> _getLocation(AppLocalizations l10n) async {
     setState(() => _isFetchingLocation = true);
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location services are disabled')));
-      setState(() => _isFetchingLocation = false);
-      return;
-    }
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location permission denied')));
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location services are disabled')),
+          );
         setState(() => _isFetchingLocation = false);
         return;
       }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Location permission denied')),
+            );
+          setState(() => _isFetchingLocation = false);
+          return;
+        }
+      }
+
+      Position? position;
+      try {
+        // Try getting current position with a 6-second timeout
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 6),
+        );
+      } catch (e) {
+        print(
+          "GPS getCurrentPosition timed out or failed: $e. Trying last known position...",
+        );
+        // Fallback to last known position
+        position = await Geolocator.getLastKnownPosition();
+      }
+
+      if (position != null) {
+        setState(() {
+          _latitude = position!.latitude;
+          _longitude = position!.longitude;
+          _accuracy = position!.accuracy;
+          _locationTimestamp = position!.timestamp ?? DateTime.now();
+          _isFetchingLocation = false;
+          _checkAndTriggerAiAnalysis();
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Could not retrieve GPS coordinates. Please ensure location is enabled or try again outside.",
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() => _isFetchingLocation = false);
+      }
+    } catch (e) {
+      print("GPS retrieval error: $e");
+      setState(() => _isFetchingLocation = false);
     }
-    final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    setState(() {
-      _latitude = position.latitude;
-      _longitude = position.longitude;
-      _locationText = 'Lat: ${_latitude!.toStringAsFixed(4)}, Lng: ${_longitude!.toStringAsFixed(4)}';
-      _isFetchingLocation = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
     return SingleChildScrollView(
@@ -498,88 +904,572 @@ class _ReportPageState extends State<ReportPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l10n.report_issue, style: textTheme.bodyLarge),
-            Text(l10n.fill_details_desc, style: textTheme.bodySmall),
+            Text(
+              "File an Emergency Report",
+              style: textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Your report helps responders mobilize resources quickly.",
+              style: textTheme.bodySmall,
+            ),
             const SizedBox(height: 24),
 
-            _FieldLabel(label: l10n.issue_type, icon: Icons.category_outlined),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _issueType,
-              hint: Text(l10n.select_issue_type, style: textTheme.bodySmall),
-              decoration: const InputDecoration(prefixIcon: Icon(Icons.help_outline_rounded)),
-              items: _issueTypes.map((e) {
-                String label = e;
-                if (e == 'Food') {
-                  label = l10n.food;
-                } else if (e == 'Medical') label = l10n.medical;
-                else if (e == 'Shelter') label = l10n.shelter;
-                else if (e == 'Other') label = l10n.other;
-                return DropdownMenuItem(value: e, child: Text(label));
-              }).toList(),
-              onChanged: (val) => setState(() => _issueType = val),
-              validator: (val) => val == null ? l10n.select_issue_type : null,
-              onSaved: (val) => _issueType = val,
-            ),
-            const SizedBox(height: 20),
+            if (_offlineDraftsCount > 0) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(
+                    alpha: theme.brightness == Brightness.dark ? 0.2 : 0.08,
+                  ),
+                  border: Border.all(
+                    color: Colors.amber.withValues(alpha: 0.4),
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _isSyncRunning
+                          ? Icons.sync_rounded
+                          : Icons.cloud_off_rounded,
+                      color: Colors.amber.shade900,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isSyncRunning
+                                ? _syncStatusText
+                                : "$_offlineDraftsCount Offline Report(s) Queued",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: theme.brightness == Brightness.dark
+                                  ? Colors.amber.shade200
+                                  : Colors.amber.shade900,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            _isSyncRunning
+                                ? "Please keep the app open"
+                                : "They will upload automatically once connection is restored.",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.brightness == Brightness.dark
+                                  ? Colors.amber.shade100
+                                  : Colors.amber.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!_isSyncRunning)
+                      IconButton(
+                        icon: const Icon(Icons.sync_rounded),
+                        color: Colors.amber.shade900,
+                        tooltip: "Sync Now",
+                        onPressed: _startOfflineSync,
+                      ),
+                  ],
+                ),
+              ),
+            ],
 
-            _FieldLabel(label: l10n.urgency_level, icon: Icons.priority_high_rounded),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _urgency,
-              hint: Text(l10n.select_urgency, style: textTheme.bodySmall),
-              decoration: const InputDecoration(prefixIcon: Icon(Icons.flag_outlined)),
-              items: _urgencyLevels.map((e) {
-                String label = e;
-                if (e == 'Low') {
-                  label = l10n.low;
-                } else if (e == 'Medium') label = l10n.medium;
-                else if (e == 'High') label = l10n.high;
-                return DropdownMenuItem(
-                  value: e,
+            Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: _isLifeThreatening
+                    ? Colors.red.shade900.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.08)
+                    : theme.colorScheme.surface,
+                border: Border.all(
+                  color: _isLifeThreatening
+                      ? Colors.red.shade700
+                      : (theme.brightness == Brightness.dark
+                          ? theme.colorScheme.outline
+                          : theme.colorScheme.outline.withValues(alpha: 0.3)),
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(11),
+                child: IntrinsicHeight(
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(Icons.circle, color: _getUrgencyColor(e), size: 10),
-                      const SizedBox(width: 10),
-                      Text(label),
+                      if (_isLifeThreatening)
+                        Container(width: 4, color: Colors.red.shade700),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _isLifeThreatening =
+                                              !_isLifeThreatening;
+                                          if (_isLifeThreatening) {
+                                            _urgency = 'High';
+                                          } else {
+                                            _selectedLifeThreateningScenarios
+                                                .clear();
+                                          }
+                                        });
+                                      },
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 4,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.warning_amber_rounded,
+                                              color: Colors.red,
+                                              size: 24,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    "🚨 Life-Threatening Emergency",
+                                                    style: textTheme.bodyMedium
+                                                        ?.copyWith(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors
+                                                              .red
+                                                              .shade700,
+                                                        ),
+                                                  ),
+                                                  Text(
+                                                    "Toggle if lives are in immediate danger",
+                                                    style: textTheme.bodySmall
+                                                        ?.copyWith(
+                                                          fontSize: 11,
+                                                        ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Switch(
+                                    value: _isLifeThreatening,
+                                    activeColor: Colors.white,
+                                    activeTrackColor: Colors.red.shade600,
+                                    inactiveThumbColor: theme.brightness == Brightness.dark
+                                        ? const Color(0xFF94A3B8)
+                                        : const Color(0xFF475569),
+                                    inactiveTrackColor: theme.brightness == Brightness.dark
+                                        ? const Color(0xFF1E293B)
+                                        : const Color(0xFFE2E8F0),
+                                    trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                                      if (states.contains(WidgetState.selected)) {
+                                        return Colors.red.shade700;
+                                      }
+                                      return theme.brightness == Brightness.dark
+                                          ? const Color(0xFF334155)
+                                          : const Color(0xFFCBD5E1);
+                                    }),
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _isLifeThreatening = val;
+                                        if (_isLifeThreatening) {
+                                          _urgency = 'High';
+                                        } else {
+                                          _selectedLifeThreateningScenarios
+                                              .clear();
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              if (_isLifeThreatening) ...[
+                                const Divider(height: 20),
+                                Text(
+                                  "Select all critical factors:",
+                                  style: textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                ...[
+                                  "People Trapped",
+                                  "Serious Injuries",
+                                  "Fire",
+                                  "Flooding",
+                                  "Building Collapse",
+                                ].map((scenario) {
+                                  final selected =
+                                      _selectedLifeThreateningScenarios
+                                          .contains(scenario);
+                                  return CheckboxListTile(
+                                    title: Text(
+                                      scenario,
+                                      style: textTheme.bodyMedium,
+                                    ),
+                                    value: selected,
+                                    activeColor: Colors.red,
+                                    dense: true,
+                                    visualDensity: VisualDensity.compact,
+                                    contentPadding: EdgeInsets.zero,
+                                    onChanged: (bool? checked) {
+                                      setState(() {
+                                        if (checked == true) {
+                                          _selectedLifeThreateningScenarios.add(
+                                            scenario,
+                                          );
+                                        } else {
+                                          _selectedLifeThreateningScenarios
+                                              .remove(scenario);
+                                        }
+                                      });
+                                    },
+                                  );
+                                }),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
+                ),
+              ),
+            ),
+
+            // 2. Issue Type Grid
+            _FieldLabel(
+              label: "Select Issue Category",
+              icon: Icons.category_outlined,
+            ),
+            const SizedBox(height: 10),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 2.2,
+              ),
+              itemCount: _newIssueTypesList.length,
+              itemBuilder: (context, index) {
+                final item = _newIssueTypesList[index];
+                final name = item['name'] as String;
+                final icon = item['icon'] as IconData;
+                final color = item['color'] as Color;
+                final isSelected = _issueType == name;
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      _issueType = name;
+                      _selectedNeeds.clear();
+                      _applyDescriptionTemplate(name);
+                      _checkAndTriggerAiAnalysis();
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? color.withValues(alpha: 0.1)
+                          : Colors.transparent,
+                      border: Border.all(
+                        color: isSelected
+                            ? color
+                            : theme.colorScheme.outline.withValues(alpha: 0.3),
+                        width: isSelected ? 2 : 1,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 15,
+                          backgroundColor: color.withValues(alpha: 0.15),
+                          child: Icon(icon, color: color, size: 14),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: textTheme.bodyMedium?.copyWith(
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              fontSize: 12,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isSelected) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: color,
+                            size: 16,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 );
-              }).toList(),
-              onChanged: (val) => setState(() => _urgency = val),
-              validator: (val) => val == null ? l10n.select_urgency : null,
-              onSaved: (val) => _urgency = val,
+              },
             ),
             const SizedBox(height: 20),
 
-            _FieldLabel(label: l10n.location, icon: Icons.location_on_outlined),
-            const SizedBox(height: 8),
+            // 3. Dynamic Needs Checklist
+            if (_issueType != null &&
+                _getNeedsForCategory(_issueType).isNotEmpty) ...[
+              _FieldLabel(
+                label: "Immediate Assistance Needs",
+                icon: Icons.playlist_add_check_rounded,
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _getNeedsForCategory(_issueType).map((need) {
+                  final isSelected = _selectedNeeds.contains(need);
+                  return FilterChip(
+                    label: Text(need),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedNeeds.add(need);
+                        } else {
+                          _selectedNeeds.remove(need);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // 4. Urgency Level cards
+            _FieldLabel(
+              label: "Urgency Level",
+              icon: Icons.priority_high_rounded,
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(
-                  child: TextFormField(
-                    readOnly: true,
-                    style: textTheme.bodyMedium,
-                    decoration: InputDecoration(
-                      hintText: l10n.fetch_location_hint,
-                      prefixIcon: Icon(_latitude != null ? Icons.location_on : Icons.location_off_outlined, color: _latitude != null ? colorScheme.primary : null),
-                    ),
-                    controller: TextEditingController(text: _locationText),
-                    validator: (val) => _latitude == null ? l10n.location : null,
-                  ),
+                _buildUrgencyCard(
+                  'Low',
+                  Colors.green,
+                  "Non-critical aid needed",
+                  theme,
+                  textTheme,
                 ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  onPressed: _isFetchingLocation ? null : () => _getLocation(l10n),
-                  child: _isFetchingLocation ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.my_location_rounded),
+                const SizedBox(width: 8),
+                _buildUrgencyCard(
+                  'Medium',
+                  Colors.orange,
+                  "Urgent but stable",
+                  theme,
+                  textTheme,
+                ),
+                const SizedBox(width: 8),
+                _buildUrgencyCard(
+                  'High',
+                  Colors.red,
+                  "Immediate hazard/rescue",
+                  theme,
+                  textTheme,
                 ),
               ],
             ),
             const SizedBox(height: 20),
 
-            _FieldLabel(label: l10n.photos_videos, icon: Icons.photo_library_outlined),
-            const SizedBox(height: 8),
+            // 5. People Affected Choice Chips
+            _FieldLabel(
+              label: "People Affected",
+              icon: Icons.people_outline_rounded,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children:
+                  [
+                    "1–5 People",
+                    "5–20 People",
+                    "20–50 People",
+                    "50+ People",
+                  ].map((choice) {
+                    final isSelected = _peopleAffected == choice;
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: ChoiceChip(
+                          label: Text(choice),
+                          selected: isSelected,
+                          padding: EdgeInsets.zero,
+                          onSelected: (bool selected) {
+                            setState(() {
+                              if (selected) _peopleAffected = choice;
+                            });
+                          },
+                        ),
+                      ),
+                    );
+                  }).toList(),
+            ),
+            const SizedBox(height: 20),
+
+            // 6. Location Block
+            _FieldLabel(
+              label: "Location Details",
+              icon: Icons.location_on_outlined,
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        _latitude != null
+                            ? Icons.gps_fixed
+                            : Icons.gps_not_fixed,
+                        color: _latitude != null
+                            ? colorScheme.primary
+                            : theme.disabledColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _latitude != null
+                                  ? "GPS Verified"
+                                  : "Location Required",
+                              style: textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (_latitude != null) ...[
+                              Text(
+                                "Coordinates: ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}",
+                                style: textTheme.bodySmall?.copyWith(
+                                  fontSize: 11,
+                                ),
+                              ),
+                              if (_accuracy != null)
+                                Text(
+                                  "Accuracy: ±${_accuracy!.toStringAsFixed(1)} meters",
+                                  style: textTheme.bodySmall?.copyWith(
+                                    fontSize: 10,
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                            ] else
+                              Text(
+                                "Tap button to fetch coordinates",
+                                style: textTheme.bodySmall?.copyWith(
+                                  fontSize: 11,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: _isFetchingLocation
+                            ? null
+                            : () => _getLocation(l10n),
+                        icon: _isFetchingLocation
+                            ? const SizedBox(
+                                height: 14,
+                                width: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.my_location_rounded, size: 14),
+                        label: Text(
+                          _isFetchingLocation ? "Fetching..." : "Get GPS",
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _landmarkController,
+                    style: textTheme.bodyMedium,
+                    decoration: const InputDecoration(
+                      labelText: "Nearby Landmark (Optional)",
+                      hintText: "e.g. Near Metro Pillar 342, Opposite School",
+                      prefixIcon: Icon(Icons.pin_drop_outlined),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 7. Photos/Videos
+            _FieldLabel(
+              label: "Incident Proof Photos/Videos",
+              icon: Icons.photo_library_outlined,
+            ),
+            const SizedBox(height: 10),
             FormField<List<XFile>>(
               initialValue: _mediaFiles,
               builder: (field) {
@@ -599,9 +1489,46 @@ class _ReportPageState extends State<ReportPage> {
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: isVid ? Container(width: 110, height: 110, color: Colors.black12, child: const Icon(Icons.videocam_rounded, size: 40, color: Colors.black45)) : Image.file(File(_mediaFiles[i].path), width: 110, height: 110, fit: BoxFit.cover),
+                                  child: isVid
+                                      ? Container(
+                                          width: 110,
+                                          height: 110,
+                                          color: Colors.black12,
+                                          child: const Icon(
+                                            Icons.videocam_rounded,
+                                            size: 40,
+                                            color: Colors.black45,
+                                          ),
+                                        )
+                                      : Image.file(
+                                          File(_mediaFiles[i].path),
+                                          width: 110,
+                                          height: 110,
+                                          fit: BoxFit.cover,
+                                        ),
                                 ),
-                                Positioned(top: 4, right: 4, child: GestureDetector(onTap: () { _removeMedia(i); field.didChange(_mediaFiles); }, child: Container(decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, color: Colors.white, size: 18)))),
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      _removeMedia(i);
+                                      field.didChange(_mediaFiles);
+                                      setState(() {});
+                                    },
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black54,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ],
                             );
                           },
@@ -610,10 +1537,30 @@ class _ReportPageState extends State<ReportPage> {
                       const SizedBox(height: 10),
                     ],
                     OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(side: BorderSide(color: colorScheme.primary.withOpacity(0.4)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16)),
-                      onPressed: _mediaFiles.length >= 5 ? null : () async { await _pickMedia(l10n); field.didChange(_mediaFiles); },
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: colorScheme.primary.withOpacity(0.4),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                      ),
+                      onPressed: _mediaFiles.length >= 5
+                          ? null
+                          : () async {
+                              await _pickMedia(l10n);
+                              field.didChange(_mediaFiles);
+                            },
                       icon: const Icon(Icons.add_a_photo_outlined),
-                      label: Text(_mediaFiles.isEmpty ? l10n.add_media : '${l10n.add_more_media} (${_mediaFiles.length}/5)'),
+                      label: Text(
+                        _mediaFiles.isEmpty
+                            ? l10n.add_media
+                            : '${l10n.add_more_media} (${_mediaFiles.length}/5)',
+                      ),
                     ),
                   ],
                 );
@@ -621,65 +1568,223 @@ class _ReportPageState extends State<ReportPage> {
             ),
             const SizedBox(height: 20),
 
-            _FieldLabel(label: l10n.description, icon: Icons.description_outlined),
-            const SizedBox(height: 8),
+            // 8. Description
+            _FieldLabel(
+              label: "Situation Description",
+              icon: Icons.description_outlined,
+            ),
+            const SizedBox(height: 10),
             TextFormField(
               controller: _descController,
               style: textTheme.bodyMedium,
               maxLines: 4,
-              decoration: InputDecoration(hintText: l10n.describe_situation_hint, alignLabelWithHint: true),
-              validator: (val) => val == null || val.isEmpty ? l10n.description : null,
-              onSaved: (val) => _description = val!,
+              decoration: InputDecoration(
+                hintText: l10n.describe_situation_hint,
+                alignLabelWithHint: true,
+                contentPadding: const EdgeInsets.all(12),
+              ),
+              validator: (val) =>
+                  val == null || val.isEmpty ? l10n.description : null,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
+            // 9. Automatic AI Analysis Preview (if triggered)
             if (_liveAiSummary != null || _isAnalyzing) ...[
-              const SizedBox(height: 12),
-              if (_isAnalyzing) Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(children: [const CircularProgressIndicator(), const SizedBox(height: 12), Text(l10n.ai_analyzing, style: const TextStyle(fontSize: 13, color: Colors.grey)) ])))
-              else if (_liveAiSummary != null) ConstrainedBox(constraints: const BoxConstraints(maxWidth: double.infinity), child: AiSummaryCard(aiSummary: _liveAiSummary!)),
-              const SizedBox(height: 12),
+              _FieldLabel(
+                label: "AI Assessment Preview",
+                icon: Icons.auto_awesome,
+              ),
+              const SizedBox(height: 10),
+              if (_isAnalyzing)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 12),
+                        Text(
+                          l10n.ai_analyzing,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (_liveAiSummary != null)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: double.infinity),
+                  child: AiSummaryCard(aiSummary: _liveAiSummary!),
+                ),
+              const SizedBox(height: 20),
             ],
 
-            Center(
-              child: TextButton.icon(
-                onPressed: _isAnalyzing ? null : () => _generateLiveSummary(l10n),
-                icon: const Icon(Icons.auto_awesome),
-                label: Text(_liveAiSummary == null ? l10n.ai_analysis_preview : l10n.refresh_ai_analysis),
-                style: TextButton.styleFrom(foregroundColor: colorScheme.primary, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+            // 10. Responders Contact Details
+            _FieldLabel(
+              label: "Contact Information",
+              icon: Icons.contact_phone_outlined,
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.call_end_rounded,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Allow rescue teams to contact you",
+                              style: textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              "Responders can call to coordinate rescue",
+                              style: textTheme.bodySmall?.copyWith(
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: _allowContact,
+                        activeColor: Colors.white,
+                        activeTrackColor: theme.colorScheme.primary,
+                        inactiveThumbColor: theme.brightness == Brightness.dark
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF475569),
+                        inactiveTrackColor: theme.brightness == Brightness.dark
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFE2E8F0),
+                        trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return theme.colorScheme.primary;
+                          }
+                          return theme.brightness == Brightness.dark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFCBD5E1);
+                        }),
+                        onChanged: (val) {
+                          setState(() {
+                            _allowContact = val;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  if (_allowContact) ...[
+                    const Divider(height: 24),
+                    TextFormField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      style: textTheme.bodyMedium,
+                      decoration: const InputDecoration(
+                        labelText: "Phone Number",
+                        hintText: "Enter active mobile number",
+                        prefixIcon: Icon(Icons.phone),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _altPhoneController,
+                      keyboardType: TextInputType.phone,
+                      style: textTheme.bodyMedium,
+                      decoration: const InputDecoration(
+                        labelText: "Alternative Phone (Optional)",
+                        hintText: "Enter backup mobile number",
+                        prefixIcon: Icon(Icons.phone_iphone),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
+            // 11. Bot Verification (for anonymous users)
             if (FirebaseAuth.instance.currentUser == null) ...[
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: colorScheme.primary.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.primary.withOpacity(0.15)),
+                  border: Border.all(
+                    color: colorScheme.primary.withOpacity(0.15),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.smart_toy_outlined, size: 20, color: colorScheme.primary),
+                        Icon(
+                          Icons.smart_toy_outlined,
+                          size: 20,
+                          color: colorScheme.primary,
+                        ),
                         const SizedBox(width: 10),
-                        Text("Bot Verification", style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text(
+                          "Bot Verification",
+                          style: textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text("Please solve this simple math problem to verify you are a human:", style: textTheme.bodySmall),
+                    Text(
+                      "Please solve this simple math problem to verify you are a human:",
+                      style: textTheme.bodySmall,
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: colorScheme.primary.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text("$_num1 $_mathOperation $_num2 =", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(
+                            "$_num1 $_mathOperation $_num2 =",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -688,7 +1793,9 @@ class _ReportPageState extends State<ReportPage> {
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               hintText: "?",
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                             ),
                           ),
                         ),
@@ -703,19 +1810,236 @@ class _ReportPageState extends State<ReportPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
             ],
 
+            // 12. Verification Score
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Verification Score",
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        "${_calculateVerificationScore()}%",
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _calculateVerificationScore() >= 75
+                              ? Colors.green
+                              : Colors.orange,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: _calculateVerificationScore() / 100.0,
+                    backgroundColor: theme.colorScheme.outline.withValues(
+                      alpha: 0.3,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      _calculateVerificationScore() >= 75
+                          ? Colors.green
+                          : Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Contributing Factors:",
+                    style: textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.brightness == Brightness.dark
+                          ? Colors.white70
+                          : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _buildFactorRow(
+                    "Location Verified",
+                    _latitude != null,
+                    textTheme,
+                  ),
+                  _buildFactorRow(
+                    "Photo Attached",
+                    _mediaFiles.isNotEmpty,
+                    textTheme,
+                  ),
+                  _buildFactorRow(
+                    "Detailed Description",
+                    _descController.text.trim().length >= 15,
+                    textTheme,
+                  ),
+                  _buildFactorRow(
+                    "Contact Info Available",
+                    _allowContact && _phoneController.text.trim().length >= 10,
+                    textTheme,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 13. Submit Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _isLifeThreatening
+                      ? Colors.red.shade700
+                      : null,
+                  foregroundColor: _isLifeThreatening ? Colors.white : null,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 onPressed: _isSubmitting ? null : () => _submitForm(l10n),
-                child: _isSubmitting ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.send_rounded), const SizedBox(width: 8), Text(l10n.submit_report, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _isLifeThreatening
+                                ? Icons.emergency_rounded
+                                : Icons.send_rounded,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _isLifeThreatening
+                                ? "SUBMIT EMERGENCY ALERT"
+                                : l10n.submit_report,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildUrgencyCard(
+    String level,
+    Color color,
+    String desc,
+    ThemeData theme,
+    TextTheme textTheme,
+  ) {
+    final isSelected = _urgency == level;
+    final isClickable = !_isLifeThreatening || level == 'High';
+    return Expanded(
+      child: Opacity(
+        opacity: isClickable ? 1.0 : 0.4,
+        child: InkWell(
+          onTap: isClickable
+              ? () {
+                  setState(() {
+                    _urgency = level;
+                    _checkAndTriggerAiAnalysis();
+                  });
+                }
+              : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+            height: 95,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? color.withValues(alpha: 0.1)
+                  : Colors.transparent,
+              border: Border.all(
+                color: isSelected
+                    ? color
+                    : theme.colorScheme.outline.withValues(alpha: 0.3),
+                width: isSelected ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.flag,
+                  color: isSelected ? color : theme.disabledColor,
+                  size: 18,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  level,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? color : null,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  desc,
+                  style: textTheme.bodySmall?.copyWith(
+                    fontSize: 8,
+                    color: isSelected ? null : Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFactorRow(String label, bool verified, TextTheme textTheme) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            verified
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked,
+            color: verified ? Colors.green : Colors.grey.shade500,
+            size: 14,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: textTheme.bodySmall?.copyWith(
+              color: verified
+                  ? textTheme.bodyMedium?.color
+                  : Colors.grey.shade600,
+              fontWeight: verified ? FontWeight.w500 : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -732,7 +2056,12 @@ class _FieldLabel extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 6),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
       ],
     );
   }
