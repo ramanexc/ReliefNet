@@ -448,35 +448,42 @@ Color _urgencyColor(String urgency) {
 }
 
 Color _issueColor(String type) {
-  switch (type.toLowerCase()) {
-    case 'medical':
-      return Colors.red.shade600;
-    case 'food':
-      return Colors.orange.shade700;
-    case 'shelter':
-      return Colors.indigo.shade600;
-    case 'fire':
-      return Colors.deepOrange.shade600;
-    case 'water':
-      return Colors.blue.shade600;
-    default:
-      return Colors.blueGrey.shade600;
+  final t = type.toLowerCase();
+  if (t.contains('medical') || t.contains('rescue')) {
+    return Colors.red.shade600;
+  } else if (t.contains('food')) {
+    return Colors.orange.shade700;
+  } else if (t.contains('shelter')) {
+    return Colors.indigo.shade600;
+  } else if (t.contains('fire')) {
+    return Colors.deepOrange.shade600;
+  } else if (t.contains('water') || t.contains('sanitation')) {
+    return Colors.blue.shade600;
+  } else if (t.contains('utilities') || t.contains('infrastructure')) {
+    return Colors.amber.shade700;
+  } else {
+    return Colors.blueGrey.shade600;
   }
 }
 
 IconData _issueIcon(String type) {
-  switch (type.toLowerCase()) {
-    case 'medical':
-      return Icons.medical_services;
-    case 'food':
-      return Icons.fastfood;
-    case 'shelter':
-      return Icons.house;
-    case 'fire':
-      return Icons.local_fire_department;
-    case 'water':
-      return Icons.water_drop;
-    default:
-      return Icons.report_problem;
+  final t = type.toLowerCase();
+  if (t.contains('medical')) {
+    return Icons.medical_services;
+  } else if (t.contains('food')) {
+    return Icons.restaurant;
+  } else if (t.contains('shelter')) {
+    return Icons.house;
+  } else if (t.contains('fire')) {
+    return Icons.local_fire_department;
+  } else if (t.contains('water') || t.contains('sanitation')) {
+    return Icons.water_drop;
+  } else if (t.contains('rescue')) {
+    return Icons.volunteer_activism;
+  } else if (t.contains('utilities') || t.contains('infrastructure')) {
+    return Icons.build;
+  } else {
+    return Icons.report_problem;
   }
 }
+

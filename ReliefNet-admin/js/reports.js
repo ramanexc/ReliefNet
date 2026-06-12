@@ -280,6 +280,74 @@ function renderModalContentOnly(r) {
   const hasCoords =
     !isNaN(lat) && !isNaN(lng) && r.lat !== undefined && r.lng !== undefined;
 
+  const lifeThreateningHtml = r.isLifeThreatening ? `
+    <div style="background:var(--red-light);border:1.5px solid var(--red);border-radius:10px;padding:12px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.2" style="width:20px;height:20px;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+      <div>
+        <div style="color:var(--red);font-weight:700;font-size:14px;margin-bottom:2px">IMMEDIATE LIFE-THREATENING EMERGENCY</div>
+        <div style="color:var(--gray-700);font-size:12px">
+          <strong>Emergency Scenarios:</strong> ${(r.lifeThreateningScenarios || []).join(', ') || 'General immediate risk'}
+        </div>
+      </div>
+    </div>
+  ` : '';
+
+  const verificationHtml = r.verificationScore !== undefined ? `
+    <div class="modal-section" style="border-left: 4px solid ${r.verificationScore >= 75 ? 'var(--green)' : r.verificationScore >= 50 ? 'var(--orange)' : 'var(--red)'}">
+      <div class="modal-section-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Verification Score</span>
+        <span class="badge ${r.verificationScore >= 75 ? 'badge-approved' : r.verificationScore >= 50 ? 'badge-pending' : 'badge-rejected'}" style="font-size:11px">${r.verificationScore}% Complete</span>
+      </div>
+      <div style="margin-top:10px">
+        <div style="background:var(--gray-200);border-radius:6px;height:8px;overflow:hidden;width:100%;margin-bottom:6px">
+          <div style="background:${r.verificationScore >= 75 ? 'var(--green)' : r.verificationScore >= 50 ? 'var(--orange)' : 'var(--red)'};height:100%;width:${r.verificationScore}%"></div>
+        </div>
+        <div style="font-size:12px;color:var(--gray-500)">
+          Calculated based on coordinate precision, description content, phone verification, and media upload completeness.
+        </div>
+      </div>
+    </div>
+  ` : '';
+
+  const needsHtml = ((r.peopleAffected && r.peopleAffected !== 'Unknown') || (r.immediateNeeds && r.immediateNeeds.length > 0)) ? `
+    <div class="modal-section">
+      <div class="modal-section-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> Impact & Urgent Needs</div>
+      ${r.peopleAffected && r.peopleAffected !== 'Unknown' ? `
+        <div style="font-size:13px;color:var(--gray-700);margin-bottom:8px">
+          <strong>Estimated People Affected:</strong> ${esc(r.peopleAffected)}
+        </div>
+      ` : ''}
+      ${r.immediateNeeds && r.immediateNeeds.length > 0 ? `
+        <div style="font-size:11px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;margin-top:10px;margin-bottom:6px">Immediate Needs Checklist</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${r.immediateNeeds.map((need) => `<span style="background:var(--blue-light);color:var(--blue);border:1px solid rgba(37,99,235,0.15);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600">${esc(need)}</span>`).join('')}
+        </div>
+      ` : ''}
+    </div>
+  ` : '';
+
+  const contactHtml = (r.allowContact && r.contactPhone) ? `
+    <div class="modal-section">
+      <div class="modal-section-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> Contact Information</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:10px;color:var(--gray-400);text-transform:uppercase">Contact Phone</div>
+          <div style="font-size:13px;font-weight:600;margin-top:2px">
+            <a href="tel:${esc(r.contactPhone)}" style="color:var(--blue);text-decoration:none">${esc(r.contactPhone)}</a>
+          </div>
+        </div>
+        ${r.contactAltPhone ? `
+          <div>
+            <div style="font-size:10px;color:var(--gray-400);text-transform:uppercase">Alternative Phone</div>
+            <div style="font-size:13px;font-weight:600;margin-top:2px">
+              <a href="tel:${esc(r.contactAltPhone)}" style="color:var(--blue);text-decoration:none">${esc(r.contactAltPhone)}</a>
+             </div>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  ` : '';
+
   document.getElementById("modal-body").innerHTML = `
     <!-- HEADER -->
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
@@ -294,6 +362,8 @@ function renderModalContentOnly(r) {
       </div>
       <button onclick="closeModal()" style="background:var(--gray-100);border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:18px;color:var(--gray-500)">✕</button>
     </div>
+
+    ${lifeThreateningHtml}
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 
@@ -312,11 +382,19 @@ function renderModalContentOnly(r) {
           ${
             hasCoords
               ? `
-            <div style="font-size:13px;color:var(--gray-600);margin-bottom:8px">
-              ${lat.toFixed(6)}, ${lng.toFixed(6)}
+            <div style="font-size:13px;color:var(--gray-600);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+              <span>${lat.toFixed(6)}, ${lng.toFixed(6)}</span>
+              ${r.gpsAccuracy !== undefined ? `
+                <span style="font-size:11px;color:var(--gray-400)">Accuracy: ±${Number(r.gpsAccuracy).toFixed(1)}m</span>
+              ` : ''}
             </div>
+            ${r.landmark ? `
+              <div style="font-size:13px;color:var(--gray-700);margin-bottom:10px;background:var(--gray-100);padding:6px 10px;border-radius:6px;border-left:3px solid var(--blue);font-style:italic">
+                <strong>Landmark:</strong> ${esc(r.landmark)}
+              </div>
+            ` : ''}
             <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank"
-               style="font-size:12px;color:var(--blue);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+               style="font-size:12px;color:var(--blue);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-bottom:8px">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg> Open in Google Maps →
             </a>
             <div id="detail-map"></div>
@@ -324,6 +402,10 @@ function renderModalContentOnly(r) {
               : '<div style="color:var(--gray-400);font-size:13px">No location data</div>'
           }
         </div>
+
+        ${needsHtml}
+
+        ${contactHtml}
 
         <!-- Submitted by -->
         <div class="modal-section">
@@ -392,6 +474,8 @@ function renderModalContentOnly(r) {
 
       <!-- RIGHT COLUMN -->
       <div style="display:flex;flex-direction:column;gap:16px">
+
+        ${verificationHtml}
 
         <!-- Credibility Engine -->
         ${cred.score !== undefined ? `
