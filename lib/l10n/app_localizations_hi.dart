@@ -416,4 +416,15 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get please_login => 'कृपया लॉगिन करें';
+
+  @override
+  String get crisis_heat_map => 'संकट हीट मैप';
+
+  @override
+  String get report_concentration => 'रिपोर्ट एकाग्रता';
+
+  @override
+  String locations_mapped(Object count) {
+    return '$count स्थान मैप किए गए';
+  }
 }

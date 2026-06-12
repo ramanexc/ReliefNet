@@ -473,6 +473,20 @@ class DashboardPageState extends State<DashboardPage> with AutomaticKeepAliveCli
                                                 Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)), child: Icon(_issueIcon(issueType), color: theme.colorScheme.primary, size: 20)),
                                                 const SizedBox(width: 10),
                                                 Expanded(child: Text(localizedIssue, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600))),
+                                                if (data['credibility'] != null && data['credibility']['isSpam'] == true)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(right: 8),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
+                                                      child: const Text("SPAM", style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                                                    ),
+                                                  ),
+                                                if (data['credibility'] != null && data['credibility']['status'] == 'verified')
+                                                  const Padding(
+                                                    padding: EdgeInsets.only(right: 8),
+                                                    child: Icon(Icons.verified, color: Colors.green, size: 16),
+                                                  ),
                                                 _Badge(label: localizedUrgency, color: _urgencyColor(urgency), icon: Icons.circle, iconSize: 8),
                                               ],
                                             ),

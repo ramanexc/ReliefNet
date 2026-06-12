@@ -133,5 +133,8 @@
   "en_route": "En Route",
   "on_site": "On Site",
   "declined": "Declined",
-  "please_login": "Please login"
+  "please_login": "Please login",
+  "crisis_heat_map": "Crisis Heat Map",
+  "report_concentration": "Report Concentration",
+  "locations_mapped": "{count} locations mapped"
 }

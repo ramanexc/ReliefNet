@@ -133,5 +133,8 @@
   "en_route": "ਰਾਹ ਵਿੱਚ",
   "on_site": "ਮੌਕੇ 'ਤੇ",
   "declined": "ਅਸਵੀਕਾਰ ਕੀਤਾ",
-  "please_login": "ਕਿਰਪਾ ਕਰਕੇ ਲੌਗਇਨ ਕਰੋ"
+  "please_login": "ਕਿਰਪਾ ਕਰਕੇ ਲੌਗਇਨ ਕਰੋ",
+  "crisis_heat_map": "ਸੰਕਟ ਹੀਟ ਮੈਪ",
+  "report_concentration": "ਰਿਪੋਰਟ ਇਕਾਗਰਤਾ",
+  "locations_mapped": "{count} ਸਥਾਨ ਮੈਪ ਕੀਤੇ ਗਏ"
 }

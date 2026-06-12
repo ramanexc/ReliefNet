@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_map_heatmap/flutter_map_heatmap.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'package:reliefnet/l10n/app_localizations.dart';
+
 class HeatMapPage extends StatefulWidget {
   final Function(String docId)? onReportSelected;
   const HeatMapPage({super.key, this.onReportSelected});
@@ -61,6 +63,7 @@ class _HeatMapPageState extends State<HeatMapPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('reports').snapshots(),
@@ -203,16 +206,16 @@ class _HeatMapPageState extends State<HeatMapPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text("Report Concentration", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text("${heatData.length} locations mapped", style: theme.textTheme.bodySmall),
+                          Text(l10n.report_concentration, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text(l10n.locations_mapped(heatData.length), style: theme.textTheme.bodySmall),
                         ],
                       ),
                     ),
-                    _buildLegendChip("High", Colors.red),
+                    _buildLegendChip(l10n.high, Colors.red),
                     const SizedBox(width: 6),
-                    _buildLegendChip("Med", Colors.orange),
+                    _buildLegendChip(l10n.medium, Colors.orange),
                     const SizedBox(width: 6),
-                    _buildLegendChip("Low", Colors.green),
+                    _buildLegendChip(l10n.low, Colors.green),
                   ],
                 ),
               ),

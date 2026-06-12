@@ -903,6 +903,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please login'**
   String get please_login;
+
+  /// No description provided for @crisis_heat_map.
+  ///
+  /// In en, this message translates to:
+  /// **'Crisis Heat Map'**
+  String get crisis_heat_map;
+
+  /// No description provided for @report_concentration.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Concentration'**
+  String get report_concentration;
+
+  /// No description provided for @locations_mapped.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} locations mapped'**
+  String locations_mapped(Object count);
 }
 
 class _AppLocalizationsDelegate
