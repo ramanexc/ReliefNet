@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:reliefnet/services/auth_service.dart';
 
 class OTPPage extends StatefulWidget {
   final String verificationId;
   final String phoneNumber;
+  final Map<String, String>? signupData;
 
-  const OTPPage({super.key, required this.verificationId, required this.phoneNumber});
+  const OTPPage({
+    super.key, 
+    required this.verificationId, 
+    required this.phoneNumber,
+    this.signupData,
+  });
 
   @override
   State<OTPPage> createState() => _OTPPageState();
@@ -37,13 +45,49 @@ class _OTPPageState extends State<OTPPage> {
 
     setState(() => _isLoading = true);
     try {
-      await _authService.signInWithOTP(widget.verificationId, code);
+      if (widget.signupData != null) {
+        // --- SIGNUP COMPLETION ---
+        // 1. Verify Phone OTP first (this signs them in temporarily with phone)
+        // We set sync: false to avoid creating a partial Firestore document for the phone-only user
+        await _authService.signInWithOTP(widget.verificationId, code, sync: false);
+        
+        // 2. Create Email User (this will sign them in with email instead)
+        final email = widget.signupData!['email']!;
+        final password = widget.signupData!['password']!;
+        final name = widget.signupData!['name']!;
+        
+        final emailCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+        
+        if (emailCred.user != null) {
+          await emailCred.user!.updateDisplayName(name);
+          
+          // 3. Save to Firestore using the new Email UID
+          await FirebaseFirestore.instance.collection('users').doc(emailCred.user!.uid).set({
+            'uid': emailCred.user!.uid,
+            'name': name,
+            'email': email,
+            'phone': widget.phoneNumber,
+            'username': '${name.toLowerCase().replaceAll(' ', '_')}_${emailCred.user!.uid.substring(0, 4)}',
+            'isVolunteer': false,
+            'volunteerId': '',
+            'role': 'citizen',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      } else {
+        // --- LOGIN FLOW ---
+        await _authService.signInWithOTP(widget.verificationId, code);
+      }
+
       if (mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
       if (mounted) {
-        _showError("Invalid OTP. Please try again.");
+        _showError("Verification failed: $e");
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

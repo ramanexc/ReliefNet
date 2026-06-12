@@ -80,13 +80,45 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      _showError("Please enter your email address to reset your password.");
+      return;
+    }
+
+    // Basic email validation regex
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      _showError("Please enter a valid email address.");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await _authService.sendPasswordResetEmail(email);
+      if (mounted) {
+        _showSuccess("A password reset link has been sent to your email. Please check your inbox and spam folder.");
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        String msg = "Error: ${e.message}";
+        if (e.code == 'user-not-found') {
+          msg = "No user found with this email.";
+        }
+        _showError(msg);
+      }
+    } catch (e) {
+      if (mounted) _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _sendOTP() async {
     // Strip all spaces and non-digits except the leading plus
     final rawPhone = _phoneController.text;
     final phone = rawPhone.replaceAll(RegExp(r'[^0-9+]'), '');
     
-    print("DEBUG: Sending OTP to formatted number: $phone");
-
     if (phone.isEmpty || !phone.startsWith('+') || phone.length < 10) {
       _showError("Enter a valid phone number with country code (e.g. +91...)");
       return;
@@ -94,25 +126,40 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
     try {
+      // 1. Check if user is registered
+      final exists = await _authService.checkPhoneExists(phone);
+      if (!exists) {
+        setState(() => _isLoading = false);
+        _showError("This phone number is not registered. Please sign up first.");
+        return;
+      }
+
+      // 2. If exists, send OTP
       await _authService.verifyPhoneNumber(
         phone,
         onCodeSent: (verificationId, resendToken) {
-          setState(() => _isLoading = false);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OTPPage(verificationId: verificationId, phoneNumber: phone),
-            ),
-          );
+          if (mounted) {
+            setState(() => _isLoading = false);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OTPPage(verificationId: verificationId, phoneNumber: phone),
+              ),
+            );
+          }
         },
         onFailed: (e) {
-          setState(() => _isLoading = false);
-          _showError(e.message ?? "Phone verification failed.");
+          if (mounted) {
+            setState(() => _isLoading = false);
+            _showError(e.message ?? "Phone verification failed.");
+          }
         },
       );
     } catch (e) {
-      setState(() => _isLoading = false);
-      _showError("An unexpected error occurred.");
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError("An error occurred: $e");
+      }
     }
   }
 
@@ -201,6 +248,20 @@ class _LoginPageState extends State<LoginPage> {
                         suffix: IconButton(
                           icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                           onPressed: () => setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _forgotPassword,
+                          child: Text(
+                            "Forgot Password?",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.primary,
+                            ),
+                          ),
                         ),
                       ),
                     ] else ...[
