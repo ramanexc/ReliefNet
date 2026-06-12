@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:reliefnet/login-signup/otp_page.dart';
+import 'package:reliefnet/services/auth_service.dart';
 import 'package:reliefnet/components/phone_formatter.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
 
@@ -24,6 +24,7 @@ class _SignupPageState extends State<SignupPage> {
   bool _isLoading = false;
   bool _obscure1 = true;
   bool _obscure2 = true;
+  final _authService = AuthService();
 
   @override
   void initState() {
@@ -44,50 +45,62 @@ class _SignupPageState extends State<SignupPage> {
   Future<void> _signUp(AppLocalizations l10n) async {
     if (!_formKey.currentState!.validate()) return;
 
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.replaceAll(RegExp(r'[^0-9+]'), '');
+    final password = _passwordController.text.trim();
+
     setState(() => _isLoading = true);
     try {
-      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      // 1. Check if phone is already registered
+      final exists = await _authService.checkPhoneExists(phone);
+      if (!mounted) return;
+      if (exists) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This phone number is already registered."), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      // 2. Start Phone Verification
+      await _authService.verifyPhoneNumber(
+        phone,
+        onCodeSent: (vid, token) {
+          if (mounted) {
+            setState(() => _isLoading = false);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OTPPage(
+                  verificationId: vid,
+                  phoneNumber: phone,
+                  signupData: {
+                    'name': name,
+                    'email': email,
+                    'password': password,
+                  },
+                ),
+              ),
+            );
+          }
+        },
+        onFailed: (e) {
+          if (mounted) {
+            setState(() => _isLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.message ?? "Verification failed"), backgroundColor: Colors.red),
+            );
+          }
+        },
       );
-
-      final user = credential.user;
-      if (user != null) {
-        await user.updateDisplayName(_nameController.text.trim());
-        final baseName = _nameController.text.trim().toLowerCase().replaceAll(' ', '_');
-        final username = '${baseName}_${user.uid.substring(0, 4)}';
-
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'name': _nameController.text.trim(),
-          'username': username,
-          'phone': _phoneController.text.trim(),
-          'email': _emailController.text.trim(),
-          'isVolunteer': false,
-          'volunteerId': '',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        await FirebaseAuth.instance.signOut();
-      }
-
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
-    } on FirebaseAuthException catch (e) {
-      String error = "Signup failed. Please try again.";
-      if (e.code == 'email-already-in-use') {
-        error = "An account with this email already exists.";
-      } else if (e.code == 'weak-password') error = "Password is too weak. Use at least 8 characters.";
-      else if (e.code == 'invalid-email') error = "The email address is badly formatted.";
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error), backgroundColor: Colors.red));
-      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("An error occurred: $e"), backgroundColor: Colors.red),
+        );
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -120,7 +133,7 @@ class _SignupPageState extends State<SignupPage> {
                       onTap: () => Navigator.pop(context),
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
                         child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                       ),
                     ),

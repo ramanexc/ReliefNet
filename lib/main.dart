@@ -86,7 +86,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return Stack(
           children: [
-            ?child,
+            if (child != null) child,
             const _MahiAssistantWrapper(),
           ],
         );

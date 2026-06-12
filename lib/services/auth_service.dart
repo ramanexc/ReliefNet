@@ -7,6 +7,15 @@ class AuthService {
 
   Stream<User?> get userStream => _auth.authStateChanges();
 
+  // --- CHECK IF PHONE EXISTS ---
+  Future<bool> checkPhoneExists(String phone) async {
+    final query = await _db.collection('users')
+        .where('phone', isEqualTo: phone)
+        .limit(1)
+        .get();
+    return query.docs.isNotEmpty;
+  }
+
   // --- PHONE AUTH ---
   Future<void> verifyPhoneNumber(
     String phone, {
@@ -40,10 +49,12 @@ class AuthService {
     }
   }
 
-  Future<UserCredential> signInWithOTP(String vid, String code) async {
+  Future<UserCredential> signInWithOTP(String vid, String code, {bool sync = true}) async {
     AuthCredential credential = PhoneAuthProvider.credential(verificationId: vid, smsCode: code);
     UserCredential userCredential = await _auth.signInWithCredential(credential);
-    await _syncUserToFirestore(userCredential.user);
+    if (sync) {
+      await _syncUserToFirestore(userCredential.user);
+    }
     return userCredential;
   }
 
@@ -52,6 +63,10 @@ class AuthService {
     UserCredential credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
     await _syncUserToFirestore(credential.user);
     return credential;
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email);
   }
 
   // --- SYNC USER TO FIRESTORE ---
