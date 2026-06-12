@@ -1079,7 +1079,22 @@ class _ReportPageState extends State<ReportPage> {
                                   const SizedBox(width: 8),
                                   Switch(
                                     value: _isLifeThreatening,
-                                    activeThumbColor: Colors.red,
+                                    activeColor: Colors.white,
+                                    activeTrackColor: Colors.red.shade600,
+                                    inactiveThumbColor: theme.brightness == Brightness.dark
+                                        ? const Color(0xFF94A3B8)
+                                        : const Color(0xFF475569),
+                                    inactiveTrackColor: theme.brightness == Brightness.dark
+                                        ? const Color(0xFF1E293B)
+                                        : const Color(0xFFE2E8F0),
+                                    trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                                      if (states.contains(WidgetState.selected)) {
+                                        return Colors.red.shade700;
+                                      }
+                                      return theme.brightness == Brightness.dark
+                                          ? const Color(0xFF334155)
+                                          : const Color(0xFFCBD5E1);
+                                    }),
                                     onChanged: (val) {
                                       setState(() {
                                         _isLifeThreatening = val;
@@ -1652,6 +1667,22 @@ class _ReportPageState extends State<ReportPage> {
                       ),
                       Switch(
                         value: _allowContact,
+                        activeColor: Colors.white,
+                        activeTrackColor: theme.colorScheme.primary,
+                        inactiveThumbColor: theme.brightness == Brightness.dark
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF475569),
+                        inactiveTrackColor: theme.brightness == Brightness.dark
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFE2E8F0),
+                        trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return theme.colorScheme.primary;
+                          }
+                          return theme.brightness == Brightness.dark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFCBD5E1);
+                        }),
                         onChanged: (val) {
                           setState(() {
                             _allowContact = val;
