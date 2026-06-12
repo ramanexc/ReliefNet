@@ -10,6 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:reliefnet/secondary-pages/profile_pages/submitted_reports_page.dart';
 import 'package:reliefnet/secondary-pages/profile_pages/tasks_page.dart';
 import 'package:reliefnet/secondary-pages/profile_pages/apply_volunteer_page.dart';
+import 'package:reliefnet/secondary-pages/profile_pages/edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -20,51 +21,8 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
-  // ── Controllers ──────────────────────────────────────────────────────────
-  final _nameController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _volunteerIdController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _locationController = TextEditingController();
-  final _contactNameController = TextEditingController();
-  final _contactPhoneController = TextEditingController();
-
   // ── State ─────────────────────────────────────────────────────────────────
-  File? _image;
-  String? _existingPhotoUrl;
   bool _isLoading = true;
-  bool _isSaving = false;
-  bool _isEditing = false;
-
-  String? _selectedAgeRange;
-  String? _selectedAvailability;
-  String? _selectedFitness;
-
-  final List<String> _availableSkills = [
-    "First Aid & CPR",
-    "Search & Rescue",
-    "Medical & Nursing",
-    "Psychological First Aid",
-    "Driving (4x4 / Heavy)",
-    "Logistics & Inventory",
-    "Cooking & Catering",
-    "Radio Operation (HAM)",
-    "Construction & Carpentry",
-    "Electrical & Generators",
-    "Water & Sanitation (WASH)",
-    "Language Translation",
-    "Community Outreach",
-    "Security & Crowd Control",
-    "IT & Telecommunications",
-    "Child & Elder Care"
-  ];
-  List<String> _selectedSkills = [];
-
-  final List<String> _availableLanguages = [
-    "English", "Hindi", "Bengali", "Punjabi", "Marathi", "Tamil", "Telugu", "Urdu"
-  ];
-  List<String> _selectedLanguages = [];
 
   List<String> _parseList(dynamic value) {
     if (value == null) return [];
@@ -114,14 +72,6 @@ class _ProfilePageState extends State<ProfilePage>
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _usernameController.dispose();
-    _volunteerIdController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _locationController.dispose();
-    _contactNameController.dispose();
-    _contactPhoneController.dispose();
     _fadeCtrl.dispose();
     super.dispose();
   }
@@ -166,23 +116,6 @@ class _ProfilePageState extends State<ProfilePage>
       if (mounted) {
         setState(() {
           _profile = mergedData;
-          _nameController.text = mergedData['name'] ?? '';
-          _usernameController.text = mergedData['username'] ?? '';
-          _volunteerIdController.text = mergedData['volunteerId'] ?? '';
-          _existingPhotoUrl = mergedData['profilePic'];
-
-          _emailController.text = mergedData['email'] ?? '';
-          _phoneController.text = mergedData['phone'] ?? '';
-          _locationController.text = mergedData['servingArea'] ?? '';
-          _contactNameController.text = mergedData['emergencyContactName'] ?? '';
-          _contactPhoneController.text = mergedData['emergencyContactPhone'] ?? '';
-
-          _selectedAgeRange = mergedData['ageRange'];
-          _selectedAvailability = mergedData['availability'];
-          _selectedFitness = mergedData['fitness'];
-          
-          _selectedSkills = _parseList(mergedData['skills']);
-          _selectedLanguages = _parseList(mergedData['languages']);
         });
       }
     } catch (e) {
@@ -278,152 +211,7 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
-  // ── Image picker ──────────────────────────────────────────────────────────
 
-  Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 75,
-    );
-    if (picked != null && mounted) {
-      setState(() => _image = File(picked.path));
-    }
-  }
-
-  // ── Save ──────────────────────────────────────────────────────────────────
-
-  Future<void> _saveProfile() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    final enteredId = _volunteerIdController.text.trim();
-
-    if (_nameController.text.trim().isEmpty ||
-        _usernameController.text.trim().isEmpty ||
-        _emailController.text.trim().isEmpty ||
-        _phoneController.text.trim().isEmpty) {
-      _snack('Name, username, email, and phone number are required');
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    try {
-      final isAlreadyVolunteer = _profile?['isVolunteer'] == true;
-      bool isValidVolunteer = isAlreadyVolunteer;
-      // Validate volunteer ID if entered and it changed
-      if (enteredId.isNotEmpty && enteredId != _profile?['volunteerId']) {
-        final doc = await FirebaseFirestore.instance
-            .collection('volunteer_applications')
-            .doc(uid)
-            .get();
-
-        if (doc.exists) {
-          final data = doc.data()!;
-          final approved = data['status'] == 'approved';
-          final correctId = data['volunteerId'] == enteredId;
-
-          if (approved && correctId) {
-            isValidVolunteer = true;
-          } else {
-            _snack('Invalid Volunteer ID or not approved yet');
-            setState(() => _isSaving = false);
-            return;
-          }
-        } else {
-          _snack('No volunteer application found');
-          setState(() => _isSaving = false);
-          return;
-        }
-      } else if (enteredId.isEmpty) {
-        isValidVolunteer = false;
-      }
-
-      // Validate volunteer specific fields if they are a volunteer
-      if (isValidVolunteer) {
-        if (_locationController.text.trim().isEmpty ||
-            _contactNameController.text.trim().isEmpty ||
-            _contactPhoneController.text.trim().isEmpty ||
-            _selectedSkills.isEmpty ||
-            _selectedLanguages.isEmpty ||
-            _selectedAvailability == null ||
-            _selectedFitness == null ||
-            _selectedAgeRange == null) {
-          _snack('Please fill in all volunteer profile fields');
-          setState(() => _isSaving = false);
-          return;
-        }
-      }
-
-      // Upload image
-      String? imageUrl;
-      if (_image != null) {
-        final ref = FirebaseStorage.instance.ref('profile_pics/$uid.jpg');
-        await ref.putFile(_image!);
-        imageUrl = await ref.getDownloadURL();
-      }
-
-      final data = <String, dynamic>{
-        'name': _nameController.text.trim(),
-        'username': _usernameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'volunteerId': isValidVolunteer ? (enteredId.isNotEmpty ? enteredId : (_profile?['volunteerId'] ?? '')) : '',
-        'isVolunteer': isValidVolunteer,
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-
-      if (imageUrl != null) data['profilePic'] = imageUrl;
-
-      if (isValidVolunteer) {
-        data['ageRange'] = _selectedAgeRange;
-        data['availability'] = _selectedAvailability;
-        data['fitness'] = _selectedFitness;
-        data['servingArea'] = _locationController.text.trim();
-        data['emergencyContactName'] = _contactNameController.text.trim();
-        data['emergencyContactPhone'] = _contactPhoneController.text.trim();
-        data['skills'] = _selectedSkills;
-        data['languages'] = _selectedLanguages;
-      }
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .set(data, SetOptions(merge: true));
-
-      // Sync to volunteer_applications if volunteer
-      if (isValidVolunteer) {
-        final volData = <String, dynamic>{
-          'email': _emailController.text.trim(),
-          'phone': _phoneController.text.trim(),
-          'ageRange': _selectedAgeRange,
-          'availability': _selectedAvailability,
-          'fitness': _selectedFitness,
-          'servingArea': _locationController.text.trim(),
-          'emergencyContactName': _contactNameController.text.trim(),
-          'emergencyContactPhone': _contactPhoneController.text.trim(),
-          'skills': _selectedSkills,
-          'languages': _selectedLanguages,
-          'updatedAt': FieldValue.serverTimestamp(),
-        };
-        await FirebaseFirestore.instance
-            .collection('volunteer_applications')
-            .doc(uid)
-            .set(volData, SetOptions(merge: true));
-      }
-
-      await _loadProfile();
-
-      if (mounted) {
-        setState(() => _isEditing = false);
-        _snack('Profile updated!');
-      }
-    } catch (e) {
-      _snack('Error: $e');
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
 
   // ── Sign out ──────────────────────────────────────────────────────────────
 
@@ -563,61 +351,36 @@ class _ProfilePageState extends State<ProfilePage>
             // ── Profile Hero ─────────────────────────────────────────────
             _ProfileHero(
               profile: _profile,
-              image: _image,
-              existingPhotoUrl: _existingPhotoUrl,
-              isEditing: _isEditing,
               isVolunteer: isVolunteer,
               memberSince: _memberSince(),
-              onPickImage: _pickImage,
-              onEditToggle: () => setState(() {
-                _isEditing = !_isEditing;
-                if (!_isEditing) {
-                  _nameController.text = _profile?['name'] ?? '';
-                  _usernameController.text = _profile?['username'] ?? '';
-                  _volunteerIdController.text = _profile?['volunteerId'] ?? '';
-                  _emailController.text = _profile?['email'] ?? '';
-                  _phoneController.text = _profile?['phone'] ?? '';
-                  _locationController.text = _profile?['servingArea'] ?? '';
-                  _contactNameController.text = _profile?['emergencyContactName'] ?? '';
-                  _contactPhoneController.text = _profile?['emergencyContactPhone'] ?? '';
-
-                  _selectedAgeRange = _profile?['ageRange'];
-                  _selectedAvailability = _profile?['availability'];
-                  _selectedFitness = _profile?['fitness'];
-                  
-                  _selectedSkills = _parseList(_profile?['skills']);
-                  _selectedLanguages = _parseList(_profile?['languages']);
-                  _image = null;
+              onEditTap: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditProfilePage(profile: _profile),
+                  ),
+                );
+                if (result == true) {
+                  _loadAll();
                 }
-              }),
+              },
             ),
 
-            // ── Edit Form ─────────────────────────────────────────────────
-            AnimatedSize(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeInOut,
-              child: _isEditing
-                  ? _buildEditForm(theme, theme.textTheme)
-                  : const SizedBox.shrink(),
-            ),
-
-            if (!_isEditing) ...[
+            const SizedBox(height: 24),
+            _SectionLabel(label: 'Profile Details'),
+            const SizedBox(height: 10),
+            _buildReadOnlyProfileDetails(theme),
+            
+            if (isVolunteer) ...[
               const SizedBox(height: 24),
-              _SectionLabel(label: 'Profile Details'),
+              _SectionLabel(label: 'Volunteer Profile'),
               const SizedBox(height: 10),
-              _buildReadOnlyProfileDetails(theme),
+              _buildReadOnlyVolunteerProfile(theme),
               
-              if (isVolunteer) ...[
-                const SizedBox(height: 24),
-                _SectionLabel(label: 'Volunteer Profile'),
-                const SizedBox(height: 10),
-                _buildReadOnlyVolunteerProfile(theme),
-                
-                const SizedBox(height: 24),
-                _SectionLabel(label: 'Emergency Contact'),
-                const SizedBox(height: 10),
-                _buildReadOnlyEmergencyContact(theme),
-              ],
+              const SizedBox(height: 24),
+              _SectionLabel(label: 'Emergency Contact'),
+              const SizedBox(height: 10),
+              _buildReadOnlyEmergencyContact(theme),
             ],
 
             const SizedBox(height: 24),
@@ -813,244 +576,7 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildEditForm(ThemeData theme, TextTheme textTheme) {
-    final isVolunteer = _profile?['isVolunteer'] == true;
 
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      child: Column(
-        children: [
-          _buildSectionCard(
-            title: 'Personal Details',
-            icon: Icons.person_outline,
-            theme: theme,
-            children: [
-              _buildEditField(controller: _nameController, label: 'Full Name', icon: Icons.person_outline, theme: theme),
-              const SizedBox(height: 12),
-              _buildEditField(controller: _usernameController, label: 'Username', icon: Icons.alternate_email, theme: theme),
-              const SizedBox(height: 12),
-              _buildEditField(controller: _emailController, label: 'Email Address', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, theme: theme),
-              const SizedBox(height: 12),
-              _buildEditField(controller: _phoneController, label: 'Phone Number', icon: Icons.phone_outlined, keyboardType: TextInputType.phone, theme: theme),
-              const SizedBox(height: 12),
-              _buildEditField(
-                controller: _volunteerIdController,
-                label: 'Volunteer ID (optional)',
-                icon: Icons.badge_outlined,
-                hint: 'Enter to access volunteer features',
-                theme: theme,
-              ),
-            ],
-          ),
-
-          if (isVolunteer) ...[
-            _buildSectionCard(
-              title: 'Volunteer Profile',
-              icon: Icons.volunteer_activism_outlined,
-              theme: theme,
-              children: [
-                _buildLabel("Age Range *", textTheme),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ["Under 18", "18-30", "31-50", "51+"].map((age) {
-                    final isSel = _selectedAgeRange == age;
-                    return ChoiceChip(
-                      label: Text(age),
-                      selected: isSel,
-                      onSelected: (selected) {
-                        setState(() => _selectedAgeRange = selected ? age : null);
-                      },
-                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
-                      labelStyle: TextStyle(
-                        color: isSel ? theme.colorScheme.primary : null,
-                        fontWeight: isSel ? FontWeight.bold : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                _buildLabel("Availability *", textTheme),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ["Full time", "Weekends only", "On-call"].map((avail) {
-                    final isSel = _selectedAvailability == avail;
-                    return ChoiceChip(
-                      label: Text(avail),
-                      selected: isSel,
-                      onSelected: (selected) {
-                        setState(() => _selectedAvailability = selected ? avail : null);
-                      },
-                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
-                      labelStyle: TextStyle(
-                        color: isSel ? theme.colorScheme.primary : null,
-                        fontWeight: isSel ? FontWeight.bold : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                _buildLabel("Physical Fitness Level *", textTheme),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ["Low", "Medium", "High"].map((fit) {
-                    final isSel = _selectedFitness == fit;
-                    return ChoiceChip(
-                      label: Text(fit),
-                      selected: isSel,
-                      onSelected: (selected) {
-                        setState(() => _selectedFitness = selected ? fit : null);
-                      },
-                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
-                      labelStyle: TextStyle(
-                        color: isSel ? theme.colorScheme.primary : null,
-                        fontWeight: isSel ? FontWeight.bold : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                _buildEditField(
-                  controller: _locationController,
-                  label: 'Area / District of Service',
-                  icon: Icons.map_outlined,
-                  theme: theme,
-                ),
-              ],
-            ),
-
-            _buildSectionCard(
-              title: 'Emergency Contact',
-              icon: Icons.contact_emergency_outlined,
-              theme: theme,
-              children: [
-                _buildEditField(controller: _contactNameController, label: 'Emergency Contact Name', icon: Icons.person_pin_outlined, theme: theme),
-                const SizedBox(height: 12),
-                _buildEditField(controller: _contactPhoneController, label: 'Emergency Contact Phone', icon: Icons.phone_iphone_outlined, keyboardType: TextInputType.phone, theme: theme),
-              ],
-            ),
-
-            _buildSectionCard(
-              title: 'Skills & Languages',
-              icon: Icons.auto_awesome_outlined,
-              theme: theme,
-              children: [
-                _buildLabel("Languages Spoken (Select all that apply) *", textTheme),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _availableLanguages.map((lang) {
-                    final isSel = _selectedLanguages.contains(lang);
-                    return FilterChip(
-                      label: Text(lang),
-                      selected: isSel,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedLanguages.add(lang);
-                          } else {
-                            _selectedLanguages.remove(lang);
-                          }
-                        });
-                      },
-                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
-                      checkmarkColor: theme.colorScheme.primary,
-                      labelStyle: TextStyle(
-                        color: isSel ? theme.colorScheme.primary : null,
-                        fontWeight: isSel ? FontWeight.bold : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                _buildLabel("Your Skills (Select all that apply) *", textTheme),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _availableSkills.map((skill) {
-                    final isSel = _selectedSkills.contains(skill);
-                    return FilterChip(
-                      label: Text(skill),
-                      selected: isSel,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedSkills.add(skill);
-                          } else {
-                            _selectedSkills.remove(skill);
-                          }
-                        });
-                      },
-                      selectedColor: theme.colorScheme.primary.withOpacity(0.15),
-                      checkmarkColor: theme.colorScheme.primary,
-                      labelStyle: TextStyle(
-                        color: isSel ? theme.colorScheme.primary : null,
-                        fontWeight: isSel ? FontWeight.bold : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ],
-
-          const SizedBox(height: 8),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveProfile,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: _isSaving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('Save Changes'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEditField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    String? hint,
-    TextInputType? keyboardType,
-    required ThemeData theme,
-  }) {
-    return TextField(
-      controller: controller,
-      style: theme.textTheme.bodyMedium,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        labelStyle: theme.textTheme.bodySmall,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        isDense: true,
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text, TextTheme textTheme) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1060,35 +586,26 @@ class _ProfilePageState extends State<ProfilePage>
 class _ProfileHero extends StatelessWidget {
   const _ProfileHero({
     required this.profile,
-    required this.image,
-    required this.existingPhotoUrl,
-    required this.isEditing,
     required this.isVolunteer,
     required this.memberSince,
-    required this.onPickImage,
-    required this.onEditToggle,
+    required this.onEditTap,
   });
 
   final Map<String, dynamic>? profile;
-  final File? image;
-  final String? existingPhotoUrl;
-  final bool isEditing;
   final bool isVolunteer;
   final String memberSince;
-  final VoidCallback onPickImage;
-  final VoidCallback onEditToggle;
+  final VoidCallback onEditTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final name = profile?['name'] ?? 'Your Name';
     final username = profile?['username'] ?? 'username';
+    final photoUrl = profile?['profilePic'];
 
     ImageProvider? avatarImage;
-    if (image != null) {
-      avatarImage = FileImage(image!);
-    } else if (existingPhotoUrl != null && existingPhotoUrl!.isNotEmpty) {
-      avatarImage = NetworkImage(existingPhotoUrl!);
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      avatarImage = NetworkImage(photoUrl);
     }
 
     return Container(
@@ -1108,34 +625,13 @@ class _ProfileHero extends StatelessWidget {
         children: [
           Row(
             children: [
-              GestureDetector(
-                onTap: isEditing ? onPickImage : null,
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
-                      backgroundImage: avatarImage,
-                      child: avatarImage == null
-                          ? Icon(Icons.person_rounded, size: 42, color: theme.colorScheme.primary)
-                          : null,
-                    ),
-                    if (isEditing)
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: theme.scaffoldBackgroundColor, width: 2),
-                          ),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
-                        ),
-                      ),
-                  ],
-                ),
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+                backgroundImage: avatarImage,
+                child: avatarImage == null
+                    ? Icon(Icons.person_rounded, size: 42, color: theme.colorScheme.primary)
+                    : null,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1164,8 +660,8 @@ class _ProfileHero extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: onEditToggle,
-                icon: Icon(isEditing ? Icons.close_rounded : Icons.edit_outlined, size: 22),
+                onPressed: onEditTap,
+                icon: const Icon(Icons.edit_outlined, size: 22),
                 style: IconButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
                   foregroundColor: theme.colorScheme.primary,
