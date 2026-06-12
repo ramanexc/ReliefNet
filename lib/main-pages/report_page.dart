@@ -199,6 +199,18 @@ class _ReportPageState extends State<ReportPage> {
 
   Future<void> _submitForm(AppLocalizations l10n) async {
     if (!_formKey.currentState!.validate()) return;
+    
+    // 1. Mandatory Media Check
+    if (_mediaFiles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Visual proof is mandatory. Please attach at least one photo of the incident."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     if (_latitude == null || _longitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.fetch_location_hint)),
@@ -234,6 +246,39 @@ class _ReportPageState extends State<ReportPage> {
     setState(() => _isSubmitting = true);
 
     try {
+      // 2. Multimodal AI Credibility Check
+      final List<Uint8List> imageBytesList = [];
+      for (var file in _mediaFiles.take(2)) {
+        if (!_isVideo(file)) {
+          imageBytesList.add(await file.readAsBytes());
+        }
+      }
+
+      final credibility = await GeminiService.checkCredibility(
+        issueType: submittedType,
+        description: submittedDesc,
+        imageBytesList: imageBytesList.isNotEmpty ? imageBytesList : null,
+      );
+
+      // 3. User Warning if suspected spam
+      if (credibility['status'] == 'suspected_spam' || credibility['isSpam'] == true) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Low Credibility Detected"),
+            content: Text("Our AI system flagged this report as potentially unclear or unrelated to the photo. \n\nReason: ${credibility['reason']}\n\nAre you sure you want to submit?"),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Edit Report")),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Submit Anyway")),
+            ],
+          ),
+        );
+        if (proceed != true) {
+          setState(() => _isSubmitting = false);
+          return;
+        }
+      }
+
       final docRef = FirebaseFirestore.instance.collection('reports').doc();
       final docId = docRef.id;
 
@@ -247,12 +292,13 @@ class _ReportPageState extends State<ReportPage> {
         'lat': submittedLat,
         'lng': submittedLng,
         'timestamp': FieldValue.serverTimestamp(),
-        'status': 'unassigned',
+        'status': credibility['status'] == 'suspected_spam' ? 'flagged' : 'unassigned',
         'assignedVolunteers': [],
         'submittedBy': user?.uid ?? 'anonymous',
         'isAnonymous': user == null,
         'mediaUrls': mediaUrls,
         'aiSummary': null,
+        'credibility': credibility, // Save AI verdict
       });
 
       final aiSummary = await GeminiService.analyzeReport(

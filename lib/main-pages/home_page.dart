@@ -115,7 +115,7 @@ class _HomepageState extends State<Homepage> {
       l10n.application_status,
       l10n.profile,
       l10n.settings,
-      "Crisis Heat Map",
+      l10n.crisis_heat_map,
     ];
 
     return Scaffold(
@@ -140,8 +140,8 @@ class _HomepageState extends State<Homepage> {
             ),
             _buildTile(Icons.home_outlined, l10n.home, 0, textTheme),
             _buildTile(Icons.report_outlined, l10n.report, 1, textTheme),
+            _buildTile(Icons.map_outlined, l10n.crisis_heat_map, 7, textTheme),
             if (_isVolunteer) ...[
-              _buildTile(Icons.map_outlined, "Crisis Heat Map", 7, textTheme),
               _buildTile(Icons.dashboard_outlined, l10n.dashboard, 2, textTheme),
               _buildTile(Icons.help_outline, l10n.volunteer, 3, textTheme),
             ] else
@@ -288,9 +288,9 @@ class HomeContent extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Crisis Heat Map",
-                            style: TextStyle(
+                          Text(
+                            l10n.crisis_heat_map,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 18,

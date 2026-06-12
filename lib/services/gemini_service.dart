@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
@@ -127,6 +128,59 @@ Keep solutions practical and specific to the issue type.
       print('GEMINI JSON PARSE ERROR: $e');
     }
     return null;
+  }
+
+  // ── Credibility & Spam Detection ──────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> checkCredibility({
+    required String issueType,
+    required String description,
+    List<Uint8List>? imageBytesList,
+  }) async {
+    final prompt = '''
+As an Emergency Forensic Validator, analyze this report for credibility and spam.
+REPORTED ISSUE: $issueType
+DESCRIPTION: $description
+
+TASKS:
+1. SPAM DETECTION: Check for meaningless text (asdf, hello), jokes, test messages, or gibberish.
+2. VISUAL TRUTH: If images are provided, do they show a real emergency? Reject memes, selfies, screenshots, or unrelated photos.
+3. CONSISTENCY: Does the image match the described issue? (e.g., if "Fire" is reported, are flames/smoke visible?)
+4. TYPOS/CLARITY: Is the description clear enough for responders?
+
+STRICT JSON RESPONSE (No markdown):
+{
+  "score": 0-100 (Credibility score: 100 is high truth),
+  "isSpam": boolean,
+  "status": "verified | likely_genuine | needs_review | suspected_spam",
+  "reason": "Clear explanation of the verdict",
+  "spamProbability": 0-100
+}
+''';
+
+    try {
+      final content = [
+        Content.multi([
+          TextPart(prompt),
+          if (imageBytesList != null)
+            ...imageBytesList.take(2).map((bytes) => DataPart('image/jpeg', bytes)),
+        ])
+      ];
+
+      final response = await _getModel.generateContent(content);
+      final text = response.text;
+      if (text == null) throw Exception("Empty AI response");
+
+      final start = text.indexOf('{');
+      final end = text.lastIndexOf('}');
+      if (start != -1 && end != -1) {
+        return jsonDecode(text.substring(start, end + 1)) as Map<String, dynamic>;
+      }
+      return {"score": 50, "status": "needs_review", "reason": "AI formatting error", "isSpam": false};
+    } catch (e) {
+      print('CREDIBILITY CHECK ERROR: $e');
+      return {"score": 50, "status": "needs_review", "reason": "AI analysis failed", "isSpam": false};
+    }
   }
 
   // ── Nearby hospitals ──────────────────────────────────────────────────────

@@ -414,4 +414,15 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String get please_login => 'ਕਿਰਪਾ ਕਰਕੇ ਲੌਗਇਨ ਕਰੋ';
+
+  @override
+  String get crisis_heat_map => 'ਸੰਕਟ ਹੀਟ ਮੈਪ';
+
+  @override
+  String get report_concentration => 'ਰਿਪੋਰਟ ਇਕਾਗਰਤਾ';
+
+  @override
+  String locations_mapped(Object count) {
+    return '$count ਸਥਾਨ ਮੈਪ ਕੀਤੇ ਗਏ';
+  }
 }

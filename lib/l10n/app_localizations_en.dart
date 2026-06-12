@@ -413,4 +413,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get please_login => 'Please login';
+
+  @override
+  String get crisis_heat_map => 'Crisis Heat Map';
+
+  @override
+  String get report_concentration => 'Report Concentration';
+
+  @override
+  String locations_mapped(Object count) {
+    return '$count locations mapped';
+  }
 }

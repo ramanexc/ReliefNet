@@ -133,5 +133,8 @@
   "en_route": "रास्ते में",
   "on_site": "साइट पर",
   "declined": "अस्वीकृत",
-  "please_login": "कृपया लॉगिन करें"
+  "please_login": "कृपया लॉगिन करें",
+  "crisis_heat_map": "संकट हीट मैप",
+  "report_concentration": "रिपोर्ट एकाग्रता",
+  "locations_mapped": "{count} स्थान मैप किए गए"
 }
