@@ -3,12 +3,14 @@ import {
   collection,
   doc,
   updateDoc,
+  increment,
   arrayUnion,
   arrayRemove,
   orderBy,
   query,
   serverTimestamp,
   onSnapshot,
+  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   typeIcon,
@@ -34,6 +36,8 @@ let previousFocus = null; // for focus trapping
 let unsubscribeReports = null;
 let detailMapInstance = null; // Leaflet map inside report modal
 
+let activeReportsView = 'active'; // 'active' or 'resolved'
+
 // ─── LOAD (REAL-TIME LISTENER) ───────────────────────────────
 export async function loadReports() {
   return new Promise((resolve, reject) => {
@@ -45,6 +49,7 @@ export async function loadReports() {
         allReports = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         renderReports();
         updateReportsBadge();
+        updateHubStats();
 
         // If modal is open, dynamically re-render its dynamic elements
         if (activeReportId) {
@@ -68,130 +73,145 @@ export async function loadReports() {
   });
 }
 
-// ─── UNSUBSCRIBE LISTENER ────────────────────────────────────
-export function unsubReports() {
-  if (unsubscribeReports) {
-    unsubscribeReports();
-    unsubscribeReports = null;
-  }
+function updateHubStats() {
+  const activeCount = allReports.filter(r => r.status !== 'completed' && r.status !== 'suspected_spam' && r.status !== 'flagged').length;
+  const resolvedCount = allReports.filter(r => r.status === 'completed').length;
+  const totalCount = allReports.length;
+
+  const activeStatEl = document.getElementById('hub-stats-active');
+  const resolvedStatEl = document.getElementById('hub-stats-resolved');
+  const allStatEl = document.getElementById('hub-stats-all');
+
+  if (activeStatEl) activeStatEl.textContent = `${activeCount} active reports`;
+  if (resolvedStatEl) resolvedStatEl.textContent = `${resolvedCount} resolved reports`;
+  if (allStatEl) allStatEl.textContent = `${totalCount} total reports`;
 }
 
-// ─── RENDER TABLE ────────────────────────────────────────────
-export function renderReports() {
-  let filtered =
-    currentFilter === "all"
-      ? allReports
-      : currentFilter === "completed"
-        ? allReports.filter((r) => r.status === "completed")
-        : currentFilter === "spam"
-          ? allReports.filter((r) => r.status === "suspected_spam" || r.status === "flagged")
-          : currentFilter === "active"
-            ? allReports.filter((r) => r.status !== "completed" && r.status !== "suspected_spam" && r.status !== "flagged")
-            : allReports.filter((r) => r.urgency === currentFilter);
+// ─── NAVIGATION ──────────────────────────────────────────────
+window.openReportsView = (view) => {
+  activeReportsView = view;
+  let title = 'Active Reports';
+  if (view === 'resolved') title = 'Resolved Reports';
+  if (view === 'all') title = 'All Reports';
 
+  document.getElementById('reports-list-title').textContent = title;
+
+  // Toggle spam filter visibility (only for active/all)
+  const spamToggle = document.getElementById('spam-toggle-container');
+  if (spamToggle) {
+    spamToggle.style.display = view === 'resolved' ? 'none' : 'flex';
+  }
+
+  renderReports();
+
+  // Keep the Reports sidebar item active
+  const navBtn = document.querySelector(`.sidebar-nav button[onclick*="'reports-hub'"]`);
+  window.showPage('reports-list', navBtn);
+};
+
+// ─── RENDER TABLES (SINGLE COLUMN LIST) ──────────────────────
+export function renderReports() {
+  let filtered = allReports;
+
+  // Filter by search
   if (searchQuery) {
     filtered = filtered.filter(
       (r) =>
         (r.issueType || "").toLowerCase().includes(searchQuery) ||
         (r.description || "").toLowerCase().includes(searchQuery) ||
+        (r.id || "").toLowerCase().includes(searchQuery) ||
         (r.submittedBy || "").toLowerCase().includes(searchQuery),
     );
   }
 
-  const totalItems = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-  if (currentPage > totalPages) currentPage = totalPages;
+  const showSpam = document.getElementById('show-spam-toggle')?.checked || false;
 
-  const start = (currentPage - 1) * itemsPerPage;
-  const paginated = filtered.slice(start, start + itemsPerPage);
+  // Filter by Status (Active vs Resolved vs All)
+  const items = filtered.filter(r => {
+    const isCompleted = r.status === "completed";
+    const isSpam = r.status === "suspected_spam" || r.status === "flagged";
 
-  const tbody = document.getElementById("reports-body");
-  if (paginated.length === 0) {
-    tbody.innerHTML = emptyRow(6, "empty", "No reports found");
-    renderPagination(
-      "reports-pagination",
-      currentPage,
-      totalPages,
-      "reportsPrevPage()",
-      "reportsNextPage()",
-    );
+    if (activeReportsView === 'active') {
+      if (isCompleted) return false;
+      if (isSpam) return showSpam;
+      return true;
+    } else if (activeReportsView === 'resolved') {
+      return isCompleted;
+    } else {
+      // 'all' view
+      if (isSpam && !showSpam) return false;
+      return true;
+    }
+  });
+
+  // Sort by Priority (High to Low)
+  const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
+  items.sort((a, b) => {
+    const orderA = priorityOrder[a.urgency] || 4;
+    const orderB = priorityOrder[b.urgency] || 4;
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+
+    // Then sort by most recent
+    const timeA = a.timestamp?.seconds || 0;
+    const timeB = b.timestamp?.seconds || 0;
+    return timeB - timeA;
+  });
+
+  const tbody = document.getElementById("reports-list-body");
+  if (!tbody) return;
+
+  if (items.length === 0) {
+    tbody.innerHTML = emptyRow(6, "empty", `No ${activeReportsView} reports found`);
     return;
   }
 
-  tbody.innerHTML = paginated
+  tbody.innerHTML = items
     .map(
-      (r) => `
-    <tr style="cursor:pointer" onclick="openReport('${r.id}')">
-      <td>${typeIcon(r.issueType)} ${esc(r.issueType)}</td>
-      <td class="desc-cell">${esc(r.description)}</td>
+      (r) => {
+        const isSpam = r.status === "suspected_spam" || r.status === "flagged";
+        return `
+    <tr onclick="openReport('${r.id}')" style="${isSpam ? 'background: var(--red-light);' : ''}">
+      <td>
+        <div style="font-weight:600; font-size:13px; color:var(--gray-900); display:flex; align-items:center; gap:8px;">
+          ${typeIcon(r.issueType)} ${esc(r.issueType)}
+          ${isSpam ? '<span style="background:var(--red); color:white; font-size:8px; padding:1px 4px; border-radius:4px; font-weight:bold;">SPAM</span>' : ''}
+        </div>
+        <div style="font-size:11px; color:var(--gray-400); font-family:'DM Mono',monospace; margin-top:2px;">ID: ${r.id.substring(0,8)}...</div>
+      </td>
+      <td class="desc-cell" style="font-size:12px; color:var(--gray-600); white-space: normal; line-height: 1.4;">${esc(r.description)}</td>
       <td>${urgencyBadge(r.urgency)}</td>
-      <td>${statusBadge(r.status)}</td>
-      <td style="font-size:12px;color:var(--gray-400)">${formatTime(r.timestamp)}</td>
-      <td><span style="font-size:12px;color:var(--blue);font-weight:600">View →</span></td>
+      <td style="font-size:12px; color:var(--gray-500); font-family:'DM Mono',monospace;">${esc(r.submittedBy).substring(0,10)}...</td>
+      <td style="font-size:12px; color:var(--gray-500);">
+        ${formatTime(r.timestamp)}
+      </td>
+      <td>
+        <button class="action-btn btn-resolve" style="padding:6px 12px; font-size:11px;">Details</button>
+      </td>
     </tr>
-  `,
+  `;
+      }
     )
     .join("");
-
-  renderPagination(
-    "reports-pagination",
-    currentPage,
-    totalPages,
-    "reportsPrevPage()",
-    "reportsNextPage()",
-  );
 }
 
-// ─── FILTER ──────────────────────────────────────────────────
-window.filterReports = (filter, btn) => {
-  currentFilter = filter;
-  currentPage = 1;
-  document
-    .querySelectorAll("#page-reports .filter-btn")
-    .forEach((b) => b.classList.remove("active"));
-  btn.classList.add("active");
+window.toggleSpamView = () => {
   renderReports();
 };
 
-// ─── SEARCH / PAGINATION ACTIONS ─────────────────────────────
+// ─── FILTER (DEPRECATED FOR HUB VIEW) ────────────────────────
+window.filterReports = (filter, btn) => {
+  // Use hub navigation instead
+  if (filter === 'completed') window.openReportsView('resolved');
+  else window.openReportsView('active');
+};
+
+// ─── SEARCH ACTION ───────────────────────────────────────────
 window.searchReports = (val) => {
   searchQuery = val.trim().toLowerCase();
-  currentPage = 1;
   renderReports();
-};
-
-window.reportsPrevPage = () => {
-  if (currentPage > 1) {
-    currentPage--;
-    renderReports();
-  }
-};
-
-window.reportsNextPage = () => {
-  let filtered =
-    currentFilter === "all"
-      ? allReports
-      : currentFilter === "completed"
-        ? allReports.filter((r) => r.status === "completed")
-        : currentFilter === "spam"
-          ? allReports.filter((r) => r.status === "suspected_spam" || r.status === "flagged")
-          : currentFilter === "active"
-            ? allReports.filter((r) => r.status !== "completed" && r.status !== "suspected_spam" && r.status !== "flagged")
-            : allReports.filter((r) => r.urgency === currentFilter);
-
-  if (searchQuery) {
-    filtered = filtered.filter(
-      (r) =>
-        (r.issueType || "").toLowerCase().includes(searchQuery) ||
-        (r.description || "").toLowerCase().includes(searchQuery) ||
-        (r.submittedBy || "").toLowerCase().includes(searchQuery),
-    );
-  }
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  if (currentPage < totalPages) {
-    currentPage++;
-    renderReports();
-  }
 };
 
 // ─── CSV DATA EXPORT ──────────────────────────────────────────
@@ -569,6 +589,10 @@ function renderModalContentOnly(r) {
               <div class="resolve-form">
                 <label for="resolve-note">Resolution Note (optional)</label>
                 <textarea id="resolve-note" placeholder="Describe how this was resolved..."></textarea>
+
+                <label for="awarded-points">Award Points to Volunteers</label>
+                <input type="number" id="awarded-points" value="10" min="0" max="100" style="width:100%; padding:8px; border-radius:8px; border:1.5px solid var(--gray-200); margin-bottom:12px; font-family:inherit;">
+
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
                   <button class="action-btn btn-resolve" id="resolve-btn" onclick="resolveReport('${r.id}')" style="padding:10px;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Resolved
@@ -769,30 +793,50 @@ window.resolveReport = async (id) => {
     return;
   const btn = document.getElementById("resolve-btn");
   const noteEl = document.getElementById("resolve-note");
+  const pointsEl = document.getElementById("awarded-points");
   const note = noteEl ? noteEl.value.trim() : "";
+  const points = pointsEl ? parseInt(pointsEl.value) || 0 : 0;
+
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = "Resolving...";
   }
   try {
+    const reportRef = doc(db, "reports", id);
+    const reportSnap = await getDoc(reportRef);
+    const reportData = reportSnap.data();
+    const assignedVolunteers = reportData.assignedVolunteers || [];
+
     const updateData = {
       status: "completed",
       resolvedAt: serverTimestamp(),
+      awardedPoints: points
     };
     if (note) updateData.resolutionNote = note;
-    await updateDoc(doc(db, "reports", id), updateData);
+    await updateDoc(reportRef, updateData);
+
+    // Award points to each assigned volunteer
+    if (points > 0 && assignedVolunteers.length > 0) {
+      const promises = assignedVolunteers.map(uid =>
+        updateDoc(doc(db, "users", uid), {
+          points: increment(points)
+        })
+      );
+      await Promise.all(promises);
+    }
 
     // Log action
-    logAdminAction("resolve_report", id, { resolutionNote: note });
+    logAdminAction("resolve_report", id, { resolutionNote: note, awardedPoints: points });
 
     const r = allReports.find((x) => x.id === id);
     if (r) {
       r.status = "completed";
       if (note) r.resolutionNote = note;
+      r.awardedPoints = points;
     }
     renderReports();
     updateReportsBadge();
-    showToast("Report marked as resolved");
+    showToast(`Report resolved. Awarded ${points} points to ${assignedVolunteers.length} volunteers.`);
   } catch (e) {
     if (btn) {
       btn.disabled = false;

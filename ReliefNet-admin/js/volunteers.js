@@ -48,6 +48,9 @@ export function renderVolunteers() {
     );
   }
 
+  // Sort by points descending (Leaderboard)
+  filtered.sort((a, b) => (b.points || 0) - (a.points || 0));
+
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
   if (currentPage > totalPages) currentPage = totalPages;
@@ -57,20 +60,30 @@ export function renderVolunteers() {
 
   const tbody = document.getElementById('volunteers-body');
   if (paginated.length === 0) {
-    tbody.innerHTML = emptyRow(5, 'users', 'No verified volunteers yet');
+    tbody.innerHTML = emptyRow(6, 'users', 'No verified volunteers yet');
     renderPagination('volunteers-pagination', currentPage, totalPages, 'volunteersPrevPage()', 'volunteersNextPage()');
     return;
   }
 
-  tbody.innerHTML = paginated.map(v => `
+  tbody.innerHTML = paginated.map((v, idx) => {
+    const rank = start + idx + 1;
+    let rankBadge = '';
+    if (rank === 1) rankBadge = '🥇';
+    else if (rank === 2) rankBadge = '🥈';
+    else if (rank === 3) rankBadge = '🥉';
+
+    return `
     <tr onclick="openVolunteerProfile('${v.id}')">
+      <td style="width: 50px; text-align: center; font-weight: bold;">${rankBadge || rank}</td>
       <td><strong>${esc(v.name)}</strong></td>
       <td style="color:var(--gray-500)">@${esc(v.username)}</td>
       <td class="mono">${esc(v.volunteerId)}</td>
+      <td style="font-weight: 700; color: var(--blue);">${v.points || 0}</td>
       <td style="font-size:12px;color:var(--gray-400)">${formatTime(v.updatedAt)}</td>
-      <td><span style="font-size:12px;color:var(--blue);font-weight:600">View →</span></td>
+      <td><span style="font-size:12px;color:var(--blue);font-weight:600">Profile →</span></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   renderPagination('volunteers-pagination', currentPage, totalPages, 'volunteersPrevPage()', 'volunteersNextPage()');
 }
@@ -160,13 +173,17 @@ window.openVolunteerProfile = (uid) => {
     </div>
 
     <!-- METRICS -->
-    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-bottom:16px;">
+    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:12px;margin-bottom:16px;">
       <div class="modal-section" style="text-align:center;">
-        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;">Assigned</div>
-        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:var(--blue);margin-top:4px;">${assignedReports.length}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;">Total Points</div>
+        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:var(--blue);margin-top:4px;">${v.points || 0}</div>
       </div>
       <div class="modal-section" style="text-align:center;">
-        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;">Active Tasks</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;">Assigned</div>
+        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:var(--gray-700);margin-top:4px;">${assignedReports.length}</div>
+      </div>
+      <div class="modal-section" style="text-align:center;">
+        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;">Active</div>
         <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:var(--orange);margin-top:4px;">${activeReports.length}</div>
       </div>
       <div class="modal-section" style="text-align:center;">
