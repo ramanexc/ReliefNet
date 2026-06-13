@@ -231,6 +231,8 @@ class HomeContent extends StatefulWidget {
 class _HomeContentState extends State<HomeContent> {
   late final Stream<QuerySnapshot> _activeReportsStream;
   late final Stream<QuerySnapshot> _pendingTasksStream;
+  late final Stream<QuerySnapshot> _alertsStream;
+  String? _lastAlertId;
 
   @override
   void initState() {
@@ -247,6 +249,57 @@ class _HomeContentState extends State<HomeContent> {
         .collection('reports')
         .where('assignedVolunteers', arrayContains: uid)
         .snapshots();
+
+    _alertsStream = FirebaseFirestore.instance
+        .collection('broadcasts')
+        .orderBy('timestamp', descending: true)
+        .limit(10)
+        .snapshots();
+
+    // Listen for new alerts to show "notifications" (SnackBars)
+    _alertsStream.listen((snapshot) {
+      if (snapshot.docs.isNotEmpty) {
+        final newestAlert = snapshot.docs.first;
+        if (_lastAlertId != null && _lastAlertId != newestAlert.id) {
+          _showInAppNotification(newestAlert.data() as Map<String, dynamic>);
+        }
+        _lastAlertId = newestAlert.id;
+      }
+    });
+  }
+
+  void _showInAppNotification(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final level = data['level'] ?? 'Info';
+    final color = level == 'Critical' ? Colors.red : (level == 'Warning' ? Colors.orange : Colors.blue);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("🚨 EMERGENCY ALERT: ${data['title']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(data['message'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ),
+        backgroundColor: color,
+        duration: const Duration(seconds: 8),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(label: "DISMISS", textColor: Colors.white, onPressed: () {}),
+      ),
+    );
+  }
+
+  String formatTime(Timestamp? timestamp) {
+    if (timestamp == null) return "Just now";
+    final date = timestamp.toDate();
+    return "${date.day} ${_getMonth(date.month)} ${date.year}, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
+  }
+
+  String _getMonth(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
   }
 
   @override
@@ -284,6 +337,78 @@ class _HomeContentState extends State<HomeContent> {
             style: textTheme.bodyMedium,
           ),
           const SizedBox(height: 20),
+
+          // EMERGENCY ALERTS BROADCAST SECTION
+          StreamBuilder<QuerySnapshot>(
+            stream: _alertsStream,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox.shrink();
+              
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionHeader(title: "Emergency Alerts", icon: Icons.campaign_rounded),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 110,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: snapshot.data!.docs.length,
+                      itemBuilder: (context, index) {
+                        final alert = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+                        final level = alert['level'] ?? 'Info';
+                        final color = level == 'Critical' ? Colors.red : (level == 'Warning' ? Colors.orange : Colors.blue);
+                        
+                        return Container(
+                          width: 280,
+                          margin: const EdgeInsets.only(right: 12, bottom: 4),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.warning_amber_rounded, size: 16, color: color),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      alert['title'] ?? 'Alert',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                alert['message'] ?? '',
+                                style: textTheme.bodySmall?.copyWith(fontSize: 12),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const Spacer(),
+                              Text(
+                                formatTime(alert['timestamp'] as Timestamp?),
+                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              );
+            },
+          ),
+
           if (isVolunteer) ...[
             GestureDetector(
               onTap: onNavigateToHeatMap,

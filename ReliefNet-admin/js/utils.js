@@ -46,7 +46,15 @@ export function appStatusBadge(s) {
 export function formatTime(ts) {
   if (!ts) return '—';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
 }
 
 // ─── TOAST ──────────────────────────────────────────────────
@@ -76,10 +84,16 @@ export function emptyRow(cols, icon, text) {
 window.showPage = (page, el) => {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
+  const pageEl = document.getElementById('page-' + page);
+  if (pageEl) pageEl.classList.add('active');
   if (el) el.classList.add('active');
   // Close sidebar on mobile after navigation
   if (window.innerWidth <= 768) closeSidebar();
+
+  // Load specific page data
+  if (page === 'broadcasts') {
+    import('./broadcasts.js').then(m => m.loadBroadcasts());
+  }
 
   // Fix Leaflet display bugs by invalidating map size when returning to overview
   if (page === 'overview') {
@@ -91,11 +105,27 @@ window.showPage = (page, el) => {
 
 // ─── DASHBOARD REDIRECTS ────────────────────────────────────
 window.goToReports = (filter) => {
-  const navBtn = document.querySelector(`.sidebar-nav button[onclick*="'reports'"]`);
-  window.showPage('reports', navBtn);
-  const filterBtn = document.querySelector(`#page-reports .filter-btn[onclick*="'${filter}'"]`);
-  if (filterBtn) {
-    filterBtn.click();
+  const navBtn = document.querySelector(`.sidebar-nav button[onclick*="'reports-hub'"]`);
+
+  if (filter === 'all') {
+    window.openReportsView('all');
+  } else if (filter === 'active' || filter === 'spam') {
+    window.openReportsView('active');
+    if (filter === 'spam') {
+      const toggle = document.getElementById('show-spam-toggle');
+      if (toggle) toggle.checked = true;
+      import('./reports.js').then(m => m.renderReports());
+    }
+  } else if (filter === 'completed') {
+    window.openReportsView('resolved');
+  } else {
+    window.showPage('reports-hub', navBtn);
+    return;
+  }
+
+  if (navBtn) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    navBtn.classList.add('active');
   }
 };
 
