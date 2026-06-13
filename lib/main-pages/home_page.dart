@@ -206,7 +206,7 @@ class _HomepageState extends State<Homepage> {
   }
 }
 
-class HomeContent extends StatelessWidget {
+class HomeContent extends StatefulWidget {
   final bool isVolunteer;
   final VoidCallback onNavigateToReport;
   final VoidCallback onNavigateToApply;
@@ -225,11 +225,43 @@ class HomeContent extends StatelessWidget {
   });
 
   @override
+  State<HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends State<HomeContent> {
+  late final Stream<QuerySnapshot> _activeReportsStream;
+  late final Stream<QuerySnapshot> _pendingTasksStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid ?? 'unauthenticated_user';
+
+    _activeReportsStream = FirebaseFirestore.instance
+        .collection('reports')
+        .where('submittedBy', isEqualTo: uid)
+        .snapshots();
+
+    _pendingTasksStream = FirebaseFirestore.instance
+        .collection('reports')
+        .where('assignedVolunteers', arrayContains: uid)
+        .snapshots();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
+
+    final isVolunteer = widget.isVolunteer;
+    final onNavigateToHeatMap = widget.onNavigateToHeatMap;
+    final onNavigateToReport = widget.onNavigateToReport;
+    final onNavigateToHospitals = widget.onNavigateToHospitals;
+    final onNavigateToApply = widget.onNavigateToApply;
+    final onNavigateToVolunteer = widget.onNavigateToVolunteer;
 
     Future<void> makeCall(String number) async {
       final Uri uri = Uri(scheme: 'tel', path: number);
@@ -370,40 +402,46 @@ class HomeContent extends StatelessWidget {
           const SizedBox(height: 24),
           _SectionHeader(title: l10n.quick_emergency_actions, icon: Icons.bolt_rounded),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _EmergencyActionBtn(
-                icon: Icons.local_hospital_outlined,
-                label: l10n.hospitals,
-                color: Colors.green,
-                onTap: onNavigateToHospitals,
-              ),
-              _EmergencyActionBtn(
-                icon: Icons.local_police_outlined,
-                label: l10n.police,
-                color: Colors.blue,
-                onTap: () => makeCall('100'),
-              ),
-              _EmergencyActionBtn(
-                icon: Icons.medical_services_outlined,
-                label: l10n.ambulance,
-                color: Colors.red,
-                onTap: () => makeCall('102'),
-              ),
-              _EmergencyActionBtn(
-                icon: Icons.local_fire_department_outlined,
-                label: l10n.fire_brigade,
-                color: Colors.orange,
-                onTap: () => makeCall('101'),
-              ),
-              _EmergencyActionBtn(
-                icon: Icons.sos_rounded,
-                label: l10n.sos,
-                color: Colors.red.shade900,
-                onTap: () => makeCall('112'),
-              ),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _EmergencyActionBtn(
+                  icon: Icons.local_hospital_outlined,
+                  label: l10n.hospitals,
+                  color: Colors.green,
+                  onTap: onNavigateToHospitals,
+                ),
+                const SizedBox(width: 12),
+                _EmergencyActionBtn(
+                  icon: Icons.local_police_outlined,
+                  label: l10n.police,
+                  color: Colors.blue,
+                  onTap: () => makeCall('100'),
+                ),
+                const SizedBox(width: 12),
+                _EmergencyActionBtn(
+                  icon: Icons.medical_services_outlined,
+                  label: l10n.ambulance,
+                  color: Colors.red,
+                  onTap: () => makeCall('102'),
+                ),
+                const SizedBox(width: 12),
+                _EmergencyActionBtn(
+                  icon: Icons.local_fire_department_outlined,
+                  label: l10n.fire_brigade,
+                  color: Colors.orange,
+                  onTap: () => makeCall('101'),
+                ),
+                const SizedBox(width: 12),
+                _EmergencyActionBtn(
+                  icon: Icons.sos_rounded,
+                  label: l10n.sos,
+                  color: Colors.red.shade900,
+                  onTap: () => makeCall('112'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
           _SectionHeader(title: l10n.safety_preparedness, icon: Icons.security_rounded),
@@ -476,24 +514,36 @@ class HomeContent extends StatelessWidget {
                 ],
               ),
             ),
-          if (!isVolunteer) const SizedBox(height: 24),
+          if (!widget.isVolunteer) const SizedBox(height: 24),
           _ImpactSummaryCard(isDark: isDark, l10n: l10n),
           const SizedBox(height: 24),
           _SectionHeader(title: l10n.active_reports, icon: Icons.list_alt_rounded),
           const SizedBox(height: 10),
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('reports')
-                .where('submittedBy', isEqualTo: user?.uid)
-                .where('status', isNotEqualTo: 'completed')
-                .orderBy('status')
-                .orderBy('timestamp', descending: true)
-                .snapshots(),
+            stream: _activeReportsStream,
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red)));
+              }
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              
+              final activeDocs = snapshot.data?.docs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>?;
+                return data != null && data['status'] != 'completed';
+              }).toList() ?? [];
+
+              activeDocs.sort((a, b) {
+                final aData = a.data() as Map<String, dynamic>?;
+                final bData = b.data() as Map<String, dynamic>?;
+                final aTime = aData?['timestamp'] as Timestamp?;
+                final bTime = bData?['timestamp'] as Timestamp?;
+                if (aTime == null || bTime == null) return 0;
+                return bTime.compareTo(aTime); // Descending
+              });
+
+              if (activeDocs.isEmpty) {
                 return _EmptyState(
                   icon: Icons.inbox_rounded,
                   message: l10n.no_active_reports,
@@ -502,31 +552,47 @@ class HomeContent extends StatelessWidget {
               return ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: snapshot.data!.docs.length,
+                itemCount: activeDocs.length,
                 itemBuilder: (context, index) {
-                  final doc = snapshot.data!.docs[index];
-                  final issue = doc['issueType'] ?? 'Unknown';
-                  final status = doc['status'] ?? '';
+                  final doc = activeDocs[index];
+                  final data = doc.data() as Map<String, dynamic>?;
+                  final issue = data?['issueType'] ?? 'Unknown';
+                  final status = data?['status'] ?? '';
                   return _ActiveReportCard(issue: issue, status: status, l10n: l10n);
                 },
               );
             },
           ),
           const SizedBox(height: 24),
-          if (isVolunteer) ...[
+          if (widget.isVolunteer) ...[
             _SectionHeader(title: l10n.pending_tasks, icon: Icons.assignment_turned_in_outlined),
             const SizedBox(height: 10),
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('reports')
-                  .where('assignedVolunteers', arrayContains: user?.uid)
-                  .where('status', whereIn: ['assigned', 'in_progress', 'reached'])
-                  .snapshots(),
+              stream: _pendingTasksStream,
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red)));
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+
+                final pendingDocs = snapshot.data?.docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>?;
+                  final status = data?['status'] ?? '';
+                  return ['assigned', 'in_progress', 'reached'].contains(status);
+                }).toList() ?? [];
+
+                pendingDocs.sort((a, b) {
+                  final aData = a.data() as Map<String, dynamic>?;
+                  final bData = b.data() as Map<String, dynamic>?;
+                  final aTime = aData?['timestamp'] as Timestamp?;
+                  final bTime = bData?['timestamp'] as Timestamp?;
+                  if (aTime == null || bTime == null) return 0;
+                  return bTime.compareTo(aTime); // Descending
+                });
+
+                if (pendingDocs.isEmpty) {
                   return _EmptyState(
                     icon: Icons.check_circle_outline_rounded,
                     message: l10n.no_pending_tasks,
@@ -535,17 +601,18 @@ class HomeContent extends StatelessWidget {
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: snapshot.data!.docs.length,
+                  itemCount: pendingDocs.length,
                   itemBuilder: (context, index) {
-                    final doc = snapshot.data!.docs[index];
-                    final issue = doc['issueType'] ?? 'Task';
-                    final urgency = doc['urgency'] ?? 'Normal';
-                    final status = doc['status'] ?? 'assigned';
+                    final doc = pendingDocs[index];
+                    final data = doc.data() as Map<String, dynamic>?;
+                    final issue = data?['issueType'] ?? 'Task';
+                    final urgency = data?['urgency'] ?? 'Normal';
+                    final status = data?['status'] ?? 'assigned';
                     return _PendingTaskCard(
                       issue: issue,
                       urgency: urgency,
                       status: status,
-                      onTap: onNavigateToVolunteer,
+                      onTap: widget.onNavigateToVolunteer,
                     );
                   },
                 );

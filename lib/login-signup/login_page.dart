@@ -336,15 +336,6 @@ class _LoginPageState extends State<LoginPage> {
                       label: const Text("Report Emergency Anonymously", style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
 
-                    const SizedBox(height: 20),
-                    // Configuration Audit Tool
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const OTPTestPage()));
-                      },
-                      icon: const Icon(Icons.bug_report_outlined, size: 16),
-                      label: const Text("Audit Auth Configuration", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    ),
                   ],
                 ),
               ),
@@ -357,21 +348,24 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _modeButton(bool mode, String label) {
     final isSelected = _isEmailMode == mode;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () => setState(() => _isEmailMode = mode),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
+          color: isSelected ? Theme.of(context).colorScheme.surfaceContainerHighest : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] : null,
+          boxShadow: isSelected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))] : null,
         ),
         child: Center(
           child: Text(
             label,
             style: TextStyle(
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? Theme.of(context).primaryColor : Colors.grey,
+              color: isSelected 
+                  ? (isDark ? Colors.white : Theme.of(context).primaryColor) 
+                  : Colors.grey,
             ),
           ),
         ),

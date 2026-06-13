@@ -49,3 +49,4 @@ secrets.json
 *.env
 .vscode/launch.json
 dart_defines.json
+generate_demo_data.js
