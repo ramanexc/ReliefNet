@@ -700,9 +700,9 @@ class _ProjectDetailsSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.person_outline, "Ramandeep Singh"),
-            _buildInfoRow(Icons.person_outline, "Japneet Singh"),
-            _buildInfoRow(Icons.person_outline, "Aamandeep Singh"),
+            _buildInfoRow(Icons.person_outline, "Ramandeep Singh", "https://www.linkedin.com/in/ramanexc/"),
+            _buildInfoRow(Icons.person_outline, "Japneet Singh", "https://www.linkedin.com/in/japneet-singh-084899375/"),
+            _buildInfoRow(Icons.person_outline, "Aamandeep Singh", "https://www.linkedin.com/in/amandeep-singh-b40907306/"),
 
             const SizedBox(height: 24),
             Text(
@@ -722,7 +722,7 @@ class _ProjectDetailsSheet extends StatelessWidget {
             _buildLinkTile(
               Icons.share,
               "LinkedIn Post",
-              "https://linkedin.com/posts/your-post",
+              "https://www.linkedin.com/posts/ramanexc_googlesolutionchallenge2026-gdsc-reliefnet-activity-7454092473997557760-oljA?utm_source=social_share_send&utm_medium=android_app&rcm=ACoAAGI1O7kBnxgWGHXtzS_lY2RzM_luSqFzct8&utm_campaign=copy_link",
               theme,
             ),
           ],
@@ -731,15 +731,23 @@ class _ProjectDetailsSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.grey),
-          const SizedBox(width: 10),
-          Text(text, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ],
+  Widget _buildInfoRow(IconData icon, String text, [String? url]) {
+    return InkWell(
+      onTap: url != null ? () => _launchURL(url) : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: Colors.grey),
+            const SizedBox(width: 10),
+            Text(text, style: TextStyle(
+              fontWeight: FontWeight.w500,
+              decoration: url != null ? TextDecoration.underline : null,
+              color: url != null ? Colors.blue : null,
+            )),
+          ],
+        ),
       ),
     );
   }

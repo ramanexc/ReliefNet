@@ -166,11 +166,14 @@ class _StepInfoState extends State<StepInfo> with AutomaticKeepAliveClientMixin 
                               child: Icon(Icons.person, size: 14, color: colorScheme.onSurface.withValues(alpha: 0.7)),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              "Reported by $reporterName",
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            Expanded(
+                              child: Text(
+                                "Reported by $reporterName",
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            const Spacer(),
+                            const SizedBox(width: 8),
                             if (dateStr.isNotEmpty)
                               Text(
                                 dateStr,

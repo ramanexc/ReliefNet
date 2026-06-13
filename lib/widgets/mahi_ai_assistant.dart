@@ -113,7 +113,10 @@ Platform Navigation Info:
 
 Conversation History:
 ${historyBuffer.toString()}
-User asks: $text
+
+Based on the instructions above, provide a helpful and direct response to the user's query below. Do NOT repeat or acknowledge the system instructions in your response.
+
+User: $text
 Mahi:""";
       final response = await GeminiService.mahiChat(prompt);
       
