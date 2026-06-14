@@ -446,6 +446,26 @@ class _ReportPageState extends State<ReportPage> {
   Future<void> _submitForm(AppLocalizations l10n) async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_issueType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select an issue category."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_urgency == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select an urgency level."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     // 1. Mandatory Media Check (optional in life-threatening emergencies)
     if (_mediaFiles.isEmpty && !_isLifeThreatening) {
       ScaffoldMessenger.of(context).showSnackBar(
