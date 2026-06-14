@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
+import '../services/gemini_service.dart';
 
 class ApplyVolunteerPage extends StatefulWidget {
   const ApplyVolunteerPage({super.key});
@@ -27,24 +28,6 @@ class _ApplyVolunteerPageState extends State<ApplyVolunteerPage> {
   String? _selectedAvailability;
   String? _selectedFitness;
 
-  final List<String> _availableSkills = [
-    "First Aid & CPR",
-    "Search & Rescue",
-    "Medical & Nursing",
-    "Psychological First Aid",
-    "Driving (4x4 / Heavy)",
-    "Logistics & Inventory",
-    "Cooking & Catering",
-    "Radio Operation (HAM)",
-    "Construction & Carpentry",
-    "Electrical & Generators",
-    "Water & Sanitation (WASH)",
-    "Language Translation",
-    "Community Outreach",
-    "Security & Crowd Control",
-    "IT & Telecommunications",
-    "Child & Elder Care"
-  ];
   final List<String> _selectedSkills = [];
 
   final List<String> _availableLanguages = [
@@ -398,7 +381,7 @@ class _ApplyVolunteerPageState extends State<ApplyVolunteerPage> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _availableSkills.map((skill) {
+                      children: GeminiService.availableSkills.map((skill) {
                         final isSel = _selectedSkills.contains(skill);
                         return FilterChip(
                           label: Text(skill),

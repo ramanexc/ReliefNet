@@ -198,8 +198,9 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   void _applyDescriptionTemplate(String category) {
-    if (_descController.text.trim().isNotEmpty)
+    if (_descController.text.trim().isNotEmpty) {
       return; // don't overwrite user's typing
+    }
     final cat = category.toLowerCase();
     if (cat.contains('food')) {
       _descController.text =
@@ -444,6 +445,26 @@ class _ReportPageState extends State<ReportPage> {
 
   Future<void> _submitForm(AppLocalizations l10n) async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_issueType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select an issue category."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_urgency == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select an urgency level."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     // 1. Mandatory Media Check (optional in life-threatening emergencies)
     if (_mediaFiles.isEmpty && !_isLifeThreatening) {
@@ -827,10 +848,11 @@ class _ReportPageState extends State<ReportPage> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Location services are disabled')),
           );
+        }
         setState(() => _isFetchingLocation = false);
         return;
       }
@@ -838,10 +860,11 @@ class _ReportPageState extends State<ReportPage> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          if (mounted)
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Location permission denied')),
             );
+          }
           setState(() => _isFetchingLocation = false);
           return;
         }
@@ -865,9 +888,9 @@ class _ReportPageState extends State<ReportPage> {
       if (position != null) {
         setState(() {
           _latitude = position!.latitude;
-          _longitude = position!.longitude;
-          _accuracy = position!.accuracy;
-          _locationTimestamp = position!.timestamp ?? DateTime.now();
+          _longitude = position.longitude;
+          _accuracy = position.accuracy;
+          _locationTimestamp = position.timestamp ?? DateTime.now();
           _isFetchingLocation = false;
           _checkAndTriggerAiAnalysis();
         });
@@ -1079,7 +1102,7 @@ class _ReportPageState extends State<ReportPage> {
                                   const SizedBox(width: 8),
                                   Switch(
                                     value: _isLifeThreatening,
-                                    activeColor: Colors.white,
+                                    activeThumbColor: Colors.white,
                                     activeTrackColor: Colors.red.shade600,
                                     inactiveThumbColor: theme.brightness == Brightness.dark
                                         ? const Color(0xFF94A3B8)
@@ -1667,7 +1690,7 @@ class _ReportPageState extends State<ReportPage> {
                       ),
                       Switch(
                         value: _allowContact,
-                        activeColor: Colors.white,
+                        activeThumbColor: Colors.white,
                         activeTrackColor: theme.colorScheme.primary,
                         inactiveThumbColor: theme.brightness == Brightness.dark
                             ? const Color(0xFF94A3B8)
