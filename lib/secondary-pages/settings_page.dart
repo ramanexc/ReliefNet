@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:reliefnet/themes/theme_provider.dart';
 import 'package:reliefnet/themes/locale_provider.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
+import 'package:reliefnet/utils/url_utils.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -645,9 +646,10 @@ class _ProjectDetailsSheet extends StatelessWidget {
   const _ProjectDetailsSheet();
 
   Future<void> _launchURL(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      throw 'Could not launch $url';
+    try {
+      await UrlUtils.launchExternal(url);
+    } catch (e) {
+      debugPrint('Could not launch $url: $e');
     }
   }
 
@@ -743,7 +745,6 @@ class _ProjectDetailsSheet extends StatelessWidget {
             const SizedBox(width: 10),
             Text(text, style: TextStyle(
               fontWeight: FontWeight.w500,
-              decoration: url != null ? TextDecoration.underline : null,
               color: url != null ? Colors.blue : null,
             )),
           ],

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import '../../services/gemini_service.dart';
 
 class EditProfilePage extends StatefulWidget {
   final Map<String, dynamic>? profile;
@@ -34,24 +35,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _selectedAvailability;
   String? _selectedFitness;
 
-  final List<String> _availableSkills = [
-    "First Aid & CPR",
-    "Search & Rescue",
-    "Medical & Nursing",
-    "Psychological First Aid",
-    "Driving (4x4 / Heavy)",
-    "Logistics & Inventory",
-    "Cooking & Catering",
-    "Radio Operation (HAM)",
-    "Construction & Carpentry",
-    "Electrical & Generators",
-    "Water & Sanitation (WASH)",
-    "Language Translation",
-    "Community Outreach",
-    "Security & Crowd Control",
-    "IT & Telecommunications",
-    "Child & Elder Care"
-  ];
   List<String> _selectedSkills = [];
 
   final List<String> _availableLanguages = [
@@ -578,7 +561,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: _availableSkills.map((skill) {
+                          children: GeminiService.availableSkills.map((skill) {
                             final isSel = _selectedSkills.contains(skill);
                             return FilterChip(
                               label: Text(skill),

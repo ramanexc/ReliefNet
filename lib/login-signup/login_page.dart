@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:reliefnet/login-signup/signup_page.dart';
 import 'package:reliefnet/login-signup/otp_page.dart';
-import 'package:reliefnet/login-signup/otp_test_page.dart';
 import 'package:reliefnet/services/auth_service.dart';
 import 'package:reliefnet/components/phone_formatter.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
@@ -114,6 +113,17 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      await _authService.signInWithGoogle();
+    } catch (e) {
+      if (mounted) _showError("Google sign in failed: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _sendOTP() async {
     // Strip all spaces and non-digits except the leading plus
     final rawPhone = _phoneController.text;
@@ -219,7 +229,10 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     // Mode Toggle
                     Container(
-                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.grey.shade100, 
+                        borderRadius: BorderRadius.circular(12)
+                      ),
                       padding: const EdgeInsets.all(4),
                       child: Row(
                         children: [
@@ -320,6 +333,28 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 40),
                     const Divider(),
                     const SizedBox(height: 20),
+
+                    // Google Sign In Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        icon: Image.asset("assets/images/google.png", height: 24),
+                        label: Text(
+                          l10n.continue_with_google,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
                     // Emergency Report Button
                     OutlinedButton.icon(
