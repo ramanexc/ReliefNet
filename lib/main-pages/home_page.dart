@@ -251,7 +251,7 @@ class _HomeContentState extends State<HomeContent> {
         .snapshots();
 
     _alertsStream = FirebaseFirestore.instance
-        .collection('broadcasts')
+        .collection('alerts')
         .orderBy('timestamp', descending: true)
         .limit(10)
         .snapshots();
@@ -286,7 +286,64 @@ class _HomeContentState extends State<HomeContent> {
         backgroundColor: color,
         duration: const Duration(seconds: 8),
         behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(label: "DISMISS", textColor: Colors.white, onPressed: () {}),
+        action: SnackBarAction(
+          label: "VIEW", 
+          textColor: Colors.white, 
+          onPressed: () => _showAlertDetails(data)
+        ),
+      ),
+    );
+  }
+
+  void _showAlertDetails(Map<String, dynamic> alert) {
+    final level = alert['level'] ?? 'Info';
+    final color = level == 'Critical' ? Colors.red : (level == 'Warning' ? Colors.orange : Colors.blue);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.campaign_rounded, color: color),
+            const SizedBox(width: 10),
+            Expanded(child: Text(alert['title'] ?? 'Emergency Alert')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: color.withOpacity(0.2)),
+              ),
+              child: Text(
+                level.toUpperCase(),
+                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              alert['message'] ?? '',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "Sent at: ${formatTime(alert['timestamp'] as Timestamp?)}",
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CLOSE"),
+          ),
+        ],
       ),
     );
   }
@@ -359,45 +416,55 @@ class _HomeContentState extends State<HomeContent> {
                         final level = alert['level'] ?? 'Info';
                         final color = level == 'Critical' ? Colors.red : (level == 'Warning' ? Colors.orange : Colors.blue);
                         
-                        return Container(
-                          width: 280,
-                          margin: const EdgeInsets.only(right: 12, bottom: 4),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: color.withOpacity(0.3), width: 1.5),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.warning_amber_rounded, size: 16, color: color),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      alert['title'] ?? 'Alert',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                        return InkWell(
+                          onTap: () => _showAlertDetails(alert),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: 280,
+                            margin: const EdgeInsets.only(right: 12, bottom: 4),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, size: 16, color: color),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        alert['title'] ?? 'Alert',
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                alert['message'] ?? '',
-                                style: textTheme.bodySmall?.copyWith(fontSize: 12),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const Spacer(),
-                              Text(
-                                formatTime(alert['timestamp'] as Timestamp?),
-                                style: const TextStyle(fontSize: 10, color: Colors.grey),
-                              ),
-                            ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  alert['message'] ?? '',
+                                  style: textTheme.bodySmall?.copyWith(fontSize: 12),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const Spacer(),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      formatTime(alert['timestamp'] as Timestamp?),
+                                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                    ),
+                                    const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.grey),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },

@@ -173,6 +173,17 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      await _authService.signInWithGoogle();
+    } catch (e) {
+      if (mounted) _showError("Google Sign-In failed: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _goToSignup() async {
     final success = await Navigator.push<bool>(
       context,
@@ -306,6 +317,41 @@ class _LoginPageState extends State<LoginPage> {
                         child: _isLoading
                             ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                             : Text(_isEmailMode ? l10n.sign_in : "Send OTP", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text("OR", style: textTheme.bodySmall?.copyWith(color: Colors.grey, fontWeight: FontWeight.bold)),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Google Sign-In Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        icon: Image.asset("assets/images/google.png", height: 20),
+                        label: const Text(
+                          "Continue with Google",
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
                       ),
                     ),
 
