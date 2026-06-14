@@ -132,7 +132,7 @@ class _HomepageState extends State<Homepage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Image.asset("assets/images/logo.png", height: 80),
+                  Image.asset("assets/images/logo.png", height: 70),
                   const SizedBox(height: 10),
                   Text(l10n.app_title, style: textTheme.bodyLarge),
                 ],
@@ -171,7 +171,7 @@ class _HomepageState extends State<Homepage> {
 
   Widget _buildTile(IconData icon, String title, int index, TextTheme textTheme) {
     return ListTile(
-      leading: Icon(icon),
+      leading: Icon(icon,),
       title: Text(title, style: textTheme.bodyMedium),
       selected: selectedindex == index,
       onTap: () => _navigate(index),
