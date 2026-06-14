@@ -650,7 +650,7 @@ class _HomeContentState extends State<HomeContent> {
               if (snapshot.hasError) {
                 return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red)));
               }
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
               
@@ -698,7 +698,7 @@ class _HomeContentState extends State<HomeContent> {
                 if (snapshot.hasError) {
                   return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red)));
                 }
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
