@@ -1,5 +1,5 @@
 import { db, auth } from "./firebase-init.js";
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, onSnapshot, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { formatTime, showToast, emptyRow, esc, logAdminAction } from "./utils.js";
 
 let unsubscribeBroadcasts = null;
@@ -22,7 +22,7 @@ function renderBroadcasts() {
     if (!tbody) return;
 
     if (allBroadcasts.length === 0) {
-        tbody.innerHTML = emptyRow(3, "empty", "No broadcasts sent yet");
+        tbody.innerHTML = emptyRow(4, "empty", "No broadcasts sent yet");
         return;
     }
 
@@ -36,9 +36,24 @@ function renderBroadcasts() {
                 <span class="badge ${b.level === 'Critical' ? 'badge-rejected' : b.level === 'Warning' ? 'badge-pending' : 'badge-active'}" style="font-size:10px;">${esc(b.level)}</span>
             </td>
             <td style="font-size:11px; color:var(--gray-400); white-space: nowrap;">${formatTime(b.timestamp)}</td>
+            <td>
+                <button class="action-btn btn-reject" onclick="deleteAlert('${b.id}')" style="padding: 4px 8px; font-size: 10px;">Delete</button>
+            </td>
         </tr>
     `).join("");
 }
+
+window.deleteAlert = async (id) => {
+    if (!confirm("Are you sure you want to delete this broadcast? It will be removed from all users' apps.")) return;
+
+    try {
+        await deleteDoc(doc(db, "broadcasts", id));
+        showToast("Broadcast deleted");
+        logAdminAction("delete_broadcast", id);
+    } catch (e) {
+        showToast("Error deleting: " + e.message);
+    }
+};
 
 window.sendBroadcast = async () => {
     const title = document.getElementById("alert-title").value.trim();
@@ -57,12 +72,22 @@ window.sendBroadcast = async () => {
     btn.textContent = "Broadcasting...";
 
     try {
-        await addDoc(collection(db, "broadcasts"), {
+        const payload = {
             title,
             level,
             message,
             timestamp: serverTimestamp(),
             sentBy: auth.currentUser.email
+        };
+
+        // 1. Add to Firestore broadcasts collection
+        await addDoc(collection(db, "broadcasts"), payload);
+
+        // 2. Add to global alerts collection for app notifications
+        await addDoc(collection(db, "alerts"), {
+            ...payload,
+            type: "broadcast",
+            isRead: false
         });
 
         // Log the admin action
