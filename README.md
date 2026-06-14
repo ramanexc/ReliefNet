@@ -17,7 +17,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com)
 [![Gemini AI](https://img.shields.io/badge/Gemini-AI-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
-[![Version](https://img.shields.io/badge/version-1.0.0-22C55E?style=for-the-badge)](https://github.com/your-username/reliefnet/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-22C55E?style=for-the-badge)](https://github.com/your-username/reliefnet/releases)
 
 <br />
 
@@ -25,9 +25,48 @@
 
 ---
 
+## ✨ What's New in v2.0.0
+
+**Tier 1 — Core Operations**
+- **NGO Coordinator Web Portal**: Admin dashboard showing real-time emergency reports on maps/charts, letting coordinators assign volunteers and export data.
+- **Volunteer Task Wizard + Geofencing**: 3-step flow guiding volunteers. Mandates 1km GPS geofence verification and on-site photo/video proof to prevent fake completions.
+- **Offline Mode + Auto-Sync**: Submit reports without internet. App saves locally and uploads automatically once connectivity returns.
+
+**Tier 2 — AI Validation & Citizen Enhancements**
+- **Multi-Modal AI Credibility Engine**: Gemini cross-checks text and media for spam (rejecting memes/gibberish) and generates a credibility score.
+- **Phone OTP Verification**: Verifies real users to block anonymous abuse.
+- **AI Form Suggestions + Verification Score**: Gemini runs in the background suggesting category/urgency and provides a live completeness score (0-100%).
+- **Mahi AI Chatbot**: Floating chatbot giving immediate, calm safety advice (flood, earthquake, medical) while help is on the way.
+
+**Tier 3 & 4 — Advanced Tools & Security**
+- **Crisis Heatmap**: Map overlay visualizing clustering emergencies, color-coded by urgency.
+- **Hospital Directory + Details Sheet**: Nearby hospitals with distance, ratings, map previews, and direct calling.
+- **Welcome Onboarding & Role Selector**: Animated intro screens to pick roles (Reporter, Volunteer, NGO Admin) to customize the UI.
+- **Multi-Language i18n**: Full UI support for English, Hindi (HI), and Punjabi (PA).
+- **Firebase App Check**: Backend security using DeviceCheck & Play Integrity to block illegitimate database writes.
+- **Math Anti-Spam Captcha**: Simple math challenge stopping bots from flooding the system.
+
+---
+
 ## What is ReliefNet?
 
 ReliefNet bridges the gap between **disaster-affected communities** and **verified NGO field volunteers**. When a crisis hits — food shortage, medical emergency, shelter need — anyone can file a geo-tagged report in seconds. Verified volunteers nearby see it on a live dashboard, accept the task, navigate to the site, and submit photo proof on completion.
+
+By replacing manual coordination with intelligent dispatch, ReliefNet cuts crisis response time from hours to minutes, ensuring help reaches affected communities faster.
+
+---
+
+## 💡 Why ReliefNet? (Our USP)
+
+**How is it different from existing platforms?**
+- **AI-Powered Validation**: Unlike traditional platforms that rely on manual verification, ReliefNet uses a Multi-Modal AI Engine to instantly cross-check text with uploaded images/videos, filtering out spam and fake reports automatically.
+- **Zero-Network Resilience**: Most emergency apps fail when cell towers go down. ReliefNet allows offline reporting by saving drafts locally and syncing them to the cloud the moment an internet connection is restored.
+- **Geofenced Accountability**: Enforces a 1km GPS Geofence verification, ensuring volunteers are physically at the crisis site before they can claim a task as resolved.
+
+**How does it solve the problem?**
+- **Eliminates Information Overload**: AI instantly scores report credibility, allowing NGO coordinators to focus only on genuine crises.
+- **Optimizes Resource Allocation**: Real-time GIS heatmaps and AI form suggestions match the right volunteers to the right emergencies based on exact proximity and required skills.
+- **Centralizes Coordination**: The new Web Portal provides a single dashboard to monitor active emergencies, review volunteer applications, and track resolution metrics in real-time.
 
 Every report is instantly analyzed by **Gemini AI** to surface urgency insights, required skills, and actionable solutions — before a single volunteer is dispatched.
 
@@ -37,7 +76,7 @@ Every report is instantly analyzed by **Gemini AI** to surface urgency insights,
 
 Get the latest version of **ReliefNet APK**:
 
-👉 [Download Latest APK](https://github.com/ReliefNet/ReliefNet/releases/download/v1.0.0/reliefnet-v1.0.0.apk)
+👉 [Download Latest APK](https://github.com/ReliefNet/ReliefNet/releases/download/v2.0.0/reliefnet-v2.0.0.apk)
 
 > ⚠️ Enable "Install from unknown sources" on your Android device before installing.
 
@@ -55,19 +94,19 @@ Watch ReliefNet in action:
 
 View our Google Solution Challenge 2026 presentation:
 
-👉 [Open Presentation on Canva](https://canva.link/nstf4xhm61ehjbu)
+👉 [Open Presentation on Canva](https://canva.link/pwl8j4vw56z8eg9)
 
 ---
 
 ## Screenshots
 
-| Home | Dashboard | Report Issue | AI Analysis |
+| Login Screen | Home Screen | Report an Issue | Dashboard |
 |:---:|:---:|:---:|:---:|
-| ![](screenshots/home.jpeg) | ![](screenshots/dashboard.jpeg) | ![](screenshots/report.jpeg) | ![](screenshots/ai_analysis.jpeg) |
+| ![](screenshots/login.jpeg) | ![](screenshots/home.jpeg) | ![](screenshots/report.jpeg) | ![](screenshots/dashboard.jpeg) |
 
-| Volunteer Task | Task Workflow | Profile | Settings |
+| Incident Details | Active Assignment | Volunteer Dashboard | Crisis Heat Map |
 |:---:|:---:|:---:|:---:|
-| ![](screenshots/volunteer_task.jpeg) | ![](screenshots/volunteer_workflow.jpeg) | ![](screenshots/profile.jpeg) | ![](screenshots/settings.jpeg) |
+| ![](screenshots/incident_details.jpeg) | ![](screenshots/active_assignment.jpeg) | ![](screenshots/volunteer_dashboard.jpeg) | ![](screenshots/crisis_heat_map.jpeg) |
 
 ---
 
@@ -136,6 +175,34 @@ Role-based access — only verified NGO volunteers can accept tasks. Profiles tr
 
 </td>
 </tr>
+<tr>
+<td width="50%">
+
+### 📡 Offline Drafts & Auto-Sync
+No internet? No problem. Reports queue locally and sync automatically when connection is restored, ensuring no distress signal is lost in disaster zones.
+
+</td>
+<td width="50%">
+
+### 🚨 Life-Threatening Mode
+A dedicated emergency flow for critical hazards (fires, structural collapses). Bypasses strict photo validations to speed up reporting when lives are in immediate danger.
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🛡️ AI Spam Filtering
+Advanced Gemini validation flags low-credibility reports. Unauthenticated users must also pass a quick math challenge, ensuring clean and actionable data.
+
+</td>
+<td width="50%">
+
+### 🖥️ ReliefNet Admin Panel
+A dedicated web dashboard for administrators to monitor overall statistics, manage regional alerts, and broadcast critical updates to volunteers.
+
+</td>
+</tr>
 </table>
 
 ---
@@ -148,7 +215,7 @@ Role-based access — only verified NGO volunteers can accept tasks. Profiles tr
 | **Database** | Firebase Firestore (real-time) |
 | **Authentication** | Firebase Auth + Google Sign-In |
 | **File Storage** | Firebase Storage |
-| **AI / ML** | Gemini API (`gemini-1.5-flash`) |
+| **AI / ML** | Gemini API (`gemini-3.1-flash-lite`) |
 | **Maps & Navigation** | Google Maps API |
 | **Places Search** | Google Places API (New) |
 | **Location** | Geolocator (Haversine distance) |
@@ -158,20 +225,27 @@ Role-based access — only verified NGO volunteers can accept tasks. Profiles tr
 
 ## Architecture
 
-```
-lib/
-├── main.dart                     # App entry, routes, theme
-├── main-pages/
-│   ├── dashboard_page.dart       # Live report feed + AI overview
-│   ├── report_page.dart          # Report submission form
-│   ├── volunteer_page.dart       # My Tasks (volunteer flow)
-│   ├── profile_page.dart         # User stats & profile
-│   └── settings_page.dart        # App settings
-├── services/
-│   └── gemini_service.dart       # Gemini API (direct HTTP)
-└── widgets/
-    ├── ai_summary_card.dart      # Reusable AI analysis card
-    └── app_bar_component.dart    # Shared app bar + drawer
+```text
+ReliefNet/
+├── lib/                              # Mobile App (Flutter)
+│   ├── main.dart                     # App entry, routes, theme
+│   ├── main-pages/
+│   │   ├── dashboard_page.dart       # Live report feed + AI overview
+│   │   ├── report_page.dart          # Report submission form (Offline Support)
+│   │   ├── volunteer_page.dart       # My Tasks (volunteer flow)
+│   │   ├── profile_page.dart         # User stats & profile
+│   │   └── settings_page.dart        # App settings
+│   ├── services/
+│   │   ├── gemini_service.dart       # AI Credibility & Analysis
+│   │   └── offline_report_service.dart # Local Queue & Sync
+│   └── widgets/
+│       ├── ai_summary_card.dart      # Reusable AI analysis card
+│       └── app_bar_component.dart    # Shared app bar + drawer
+└── ReliefNet-admin/                  # Web Admin Panel
+    ├── index.html                    # Admin Dashboard UI
+    └── js/
+        ├── broadcasts.js             # Regional alert management
+        └── analytics.js              # Platform statistics
 ```
 
 ---
@@ -236,13 +310,20 @@ Firebase will prompt you with a direct link to create it on first run.
 
 ---
 
-## Volunteer Flow
+## User & Volunteer Flow
 
-```
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ Report Filed │───▶│  Gemini AI   │───▶│  Volunteer   │───▶│  En Route   │───▶│     Done     │
-│ by citizen   │    │   Analysis   │    │   Accepts    │    │ Google Maps  │    │ Photo Proof  │
-└──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
+```text
+[ Citizen Device ]                                     [ Admin Panel ]
+┌──────────────┐    ┌──────────────┐                   ┌──────────────┐
+│ Report Filed │───▶│ Offline Queue│(if no net)        │ Monitor &    │
+│ (Math Check) │    │  Auto-Sync   │                   │ Broadcast    │
+└──────────────┘    └──────────────┘                   └──────────────┘
+       │                   │                                  │
+       ▼                   ▼                                  ▼
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│  Gemini AI   │───▶│  Live Feed   │───▶│   En Route   │───▶│   Resolved   │
+│ Spam/Triage  │    │ Vol. Accepts │    │  Google Maps │    │ Photo Proof  │
+└──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
 ```
 
 ---
@@ -290,7 +371,7 @@ Submitted as part of the Google Solution Challenge 2026. Built for educational a
 
 <div align="center">
 <br/>
-<b>ReliefNet v1.0.0</b> · Made with ❤️ for communities
+<b>ReliefNet v2.0.0</b> · Made with ❤️ for communities
 <br/><br/>
 
 [![GTBIT](https://img.shields.io/badge/GTBIT-New_Delhi-blue?style=flat-square)](https://gtbit.edu.in)
