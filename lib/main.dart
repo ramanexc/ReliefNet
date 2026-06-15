@@ -16,7 +16,6 @@ import 'package:reliefnet/themes/locale_provider.dart';
 import 'package:reliefnet/l10n/app_localizations.dart';
 import 'package:reliefnet/widgets/mahi_ai_assistant.dart';
 import 'package:reliefnet/onboarding/onboarding_screen.dart';
-import 'package:reliefnet/services/notification_service.dart';
 
 Future<void> main() async {
   // Ensure native bindings are ready
@@ -24,9 +23,6 @@ Future<void> main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp();
-
-  // Initialize Notifications
-  await NotificationService.initialize();
 
   // TEMPORARILY DISABLED APP CHECK TO FIX PHONE AUTH HANGING
   // await FirebaseAppCheck.instance.activate(
@@ -90,7 +86,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return Stack(
           children: [
-            if (child != null) child,
+            child ?? const SizedBox.shrink(),
             const _MahiAssistantWrapper(),
           ],
         );
