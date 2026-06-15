@@ -118,11 +118,11 @@
         <span id="theme-toggle-text">Dark Mode</span>
       </button>
 
-      <div class="admin-info" style="background:transparent; padding:0; margin-bottom:16px;">
-        <div class="admin-avatar" id="admin-avatar" style="border: 2px solid rgba(255,255,255,0.1);">A</div>
-        <div style="overflow:hidden;">
-          <div class="admin-email" id="admin-email" style="color:white; font-weight:600;">—</div>
-          <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase;">Admin Account</div>
+      <div class="admin-info">
+        <div class="admin-avatar" id="admin-avatar">A</div>
+        <div style="overflow:hidden; flex:1;">
+          <div class="admin-email" id="admin-email">—</div>
+          <div class="admin-label">Admin Account</div>
         </div>
       </div>
       <button class="btn-logout" onclick="signOut()" style="border-color: rgba(255,255,255,0.1); color:rgba(255,255,255,0.5);">Sign Out</button>
@@ -182,27 +182,99 @@
     <!-- OVERVIEW -->
     <div class="page active" id="page-overview">
       <div class="ops-grid">
+        <!-- LEFT: MAP (50%) -->
         <div class="map-container">
           <div id="overview-map"></div>
         </div>
 
-        <div class="feed-panel">
-          <div class="panel-header">
-            <h3>Recent Reports</h3>
+        <!-- MIDDLE: ANALYTICS (25%) -->
+        <div class="intel-panel">
+          <div class="intel-widget">
+            <h4><svg class="icon" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg> Incident Distribution</h4>
+            <div style="height: 140px;">
+              <canvas id="chart-categories"></canvas>
+            </div>
           </div>
+
+          <div class="intel-widget">
+            <h4><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg> Priority Breakdown</h4>
+            <div style="height: 120px;">
+              <canvas id="chart-priority"></canvas>
+            </div>
+          </div>
+
+          <div class="intel-widget">
+            <h4><svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> Volunteer Status</h4>
+            <div class="intel-stat-grid">
+              <div class="intel-stat-item"><span class="lab">Active</span><span class="val" id="intel-vol-active">0</span></div>
+              <div class="intel-stat-item"><span class="lab">Assigned</span><span class="val" id="intel-vol-assigned">0</span></div>
+              <div class="intel-stat-item"><span class="lab">Available</span><span class="val" id="intel-vol-avail">0</span></div>
+              <div class="intel-stat-item"><span class="lab">Offline</span><span class="val" id="intel-vol-offline">0</span></div>
+            </div>
+          </div>
+
+          <div class="intel-widget">
+            <h4><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Performance Metrics</h4>
+            <div class="intel-stat-grid">
+              <div class="intel-stat-item"><span class="lab">Avg Resp</span><span class="val" id="intel-avg-resp">—</span></div>
+              <div class="intel-stat-item"><span class="lab">Avg Res</span><span class="val" id="intel-avg-res">—</span></div>
+              <div class="intel-stat-item" style="grid-column: span 2;">
+                <span class="lab">Resolution Rate</span>
+                <div style="display:flex; align-items:center; gap:10px; margin-top:4px;">
+                  <div style="flex:1; height:6px; background:var(--bg-secondary); border-radius:3px; overflow:hidden;">
+                    <div id="intel-res-rate-bar" style="height:100%; background:var(--success); width:0%;"></div>
+                  </div>
+                  <span class="val" id="intel-res-rate-pct">0%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="intel-widget">
+            <h4><svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> System Health</h4>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px;"><span style="color:var(--text-secondary);">Firebase Auth</span><span id="health-auth" style="color:var(--success); font-weight:700;">ONLINE</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:11px;"><span style="color:var(--text-secondary);">Incident Sync</span><span id="health-sync" style="color:var(--success); font-weight:700;">LIVE</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:11px;"><span style="color:var(--text-secondary);">Spam Shield</span><span style="color:var(--info); font-weight:700;">ACTIVE</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: MONITORING (25%) -->
+        <div class="feed-panel">
+          <div class="panel-header"><h3>Recent Reports</h3></div>
           <div class="incident-feed">
              <table class="enterprise-table" style="border:none;">
-               <tbody id="overview-reports-body">
-                 <!-- Populated by JS -->
-               </tbody>
+               <tbody id="overview-reports-body"></tbody>
              </table>
           </div>
 
-          <div class="panel-header" style="border-top:1px solid var(--border);">
-            <h3>Analytics Dashboard</h3>
+          <div class="intel-widget">
+            <h4><svg class="icon" viewBox="0 0 24 24"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"></path><circle cx="12" cy="10" r="3"></circle></svg> Hotspot Summary</h4>
+            <div id="intel-hotspots"></div>
           </div>
-          <div style="padding:20px; height:200px;">
-            <canvas id="chart-categories"></canvas>
+
+          <div class="intel-widget">
+            <h4><svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg> Deployment Queue</h4>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:12px; color:var(--text-secondary);">Pending Applications</span>
+              <span class="val" id="intel-pending-apps" style="font-weight:700; color:var(--warning);">0</span>
+            </div>
+          </div>
+
+          <div class="intel-widget">
+            <h4><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg> Recent Activity</h4>
+            <div id="intel-activity" style="max-height: 150px; overflow-y: auto;"></div>
+          </div>
+
+          <div class="intel-widget">
+            <h4><svg class="icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg> Quick Actions</h4>
+            <div class="quick-action-grid">
+              <button class="btn-quick" onclick="showPage('broadcasts')">Alerts</button>
+              <button class="btn-quick" onclick="showPage('reports-list')">Export</button>
+              <button class="btn-quick" onclick="showPage('applications')">Review</button>
+              <button class="btn-quick" onclick="forceSync()">Sync</button>
+            </div>
           </div>
         </div>
       </div>
