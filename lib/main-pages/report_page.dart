@@ -631,8 +631,8 @@ class _ReportPageState extends State<ReportPage> {
           'score': 10,
           'isSpam': true,
           'status': 'suspected_spam',
-          'reason': 'Multiple reports detected from the same user at this specific location. Resource protection protocol activated.',
-          'spamProbability': 95,
+          'reason': 'RESOURCE PROTECTION: You have already submitted multiple active reports at this exact location. To prevent duplicate alerts and protect emergency resources, this submission is flagged for review.',
+          'spamProbability': 99,
         };
       }
 
