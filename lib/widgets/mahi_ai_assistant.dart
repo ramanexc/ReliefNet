@@ -10,7 +10,8 @@ class MahiAiAssistant extends StatefulWidget {
 
 class _MahiAiAssistantState extends State<MahiAiAssistant> with SingleTickerProviderStateMixin {
   final List<Map<String, String>> _messages = [];
-  final TextEditingController _controller = TextEditingController();
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   bool _isChatOpen = false;
@@ -32,6 +33,8 @@ class _MahiAiAssistantState extends State<MahiAiAssistant> with SingleTickerProv
   @override
   void initState() {
     super.initState();
+    _controller = TextEditingController();
+    _focusNode = FocusNode();
     _hoverController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
@@ -52,6 +55,7 @@ class _MahiAiAssistantState extends State<MahiAiAssistant> with SingleTickerProv
   void dispose() {
     _hoverController.dispose();
     _controller.dispose();
+    _focusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -80,13 +84,21 @@ class _MahiAiAssistantState extends State<MahiAiAssistant> with SingleTickerProv
 
   Future<void> _sendMessage({String? predefinedText}) async {
     final text = predefinedText ?? _controller.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isLoading) return;
 
     setState(() {
+      // Force a complete reset of the controller value
+      _controller.value = const TextEditingValue(
+        text: '',
+        selection: TextSelection.collapsed(offset: 0),
+        composing: TextRange.empty,
+      );
       _messages.add({'role': 'user', 'content': text});
       _isLoading = true;
-      if (predefinedText == null) _controller.clear();
     });
+    
+    // Ensure focus is maintained so keyboard doesn't flicker or close
+    _focusNode.requestFocus();
     _scrollToBottom();
 
     try {
@@ -144,6 +156,9 @@ Mahi:""";
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxChatHeight = (screenHeight - bottomInset - 150).clamp(200.0, 500.0);
+
     return Positioned.fill(
       child: Material(
         type: MaterialType.transparency,
@@ -154,18 +169,14 @@ Mahi:""";
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
-                  onPanDown: (_) {
-                    if (_isChatOpen) {
-                      _toggleChat();
-                    }
-                  },
+                  onTap: _toggleChat,
                 ),
               ),
             // Chat Window
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutBack,
-              bottom: (90) + bottomInset,
+              duration: Duration(milliseconds: bottomInset > 0 ? 100 : 300),
+              curve: bottomInset > 0 ? Curves.linear : Curves.easeOutBack,
+              bottom: (_isChatOpen ? 90 : 20) + bottomInset,
               right: 20,
               child: IgnorePointer(
                 ignoring: !_isChatOpen,
@@ -178,14 +189,16 @@ Mahi:""";
                     curve: Curves.easeOutBack,
                     child: Container(
                       width: MediaQuery.of(context).size.width * 0.85,
-                      constraints: const BoxConstraints(maxWidth: 400),
-                      height: 450,
+                      constraints: BoxConstraints(
+                        maxWidth: 400,
+                        maxHeight: maxChatHeight,
+                      ),
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
+                            color: Colors.black.withOpacity(0.2),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -193,9 +206,11 @@ Mahi:""";
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),
+                        clipBehavior: Clip.antiAlias,
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Header
+                            // Header (Fixed)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               color: Theme.of(context).primaryColor,
@@ -238,19 +253,20 @@ Mahi:""";
                                 ],
                               ),
                             ),
-                            // Chat Messages
-                            Expanded(
+                            // Chat Messages (Flexible)
+                            Flexible(
                               child: ListView.builder(
                                 controller: _scrollController,
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 itemCount: _messages.length,
+                                physics: const ClampingScrollPhysics(),
                                 itemBuilder: (context, index) {
                                   final msg = _messages[index];
                                   final isUser = msg['role'] == 'user';
                                   return Align(
                                     alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                                     child: Container(
-                                      margin: const EdgeInsets.symmetric(vertical: 6),
+                                      margin: const EdgeInsets.symmetric(vertical: 4),
                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                       decoration: BoxDecoration(
                                         color: isUser
@@ -277,130 +293,114 @@ Mahi:""";
                                 },
                               ),
                             ),
+                            // Separator / Loading
                             if (_isLoading)
                               LinearProgressIndicator(
                                 backgroundColor: Colors.transparent,
                                 valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor.withOpacity(0.5)),
                                 minHeight: 2,
-                              ),
-                            // Quick Questions
-                            if (_messages.isEmpty && !_isLoading)
-                              Container(
-                                height: 160,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                child: ListView.builder(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  itemCount: _quickQuestions.length,
-                                  itemBuilder: (context, index) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: InkWell(
-                                        onTap: () => _sendMessage(predefinedText: _quickQuestions[index]),
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context).brightness == Brightness.dark
-                                                ? Colors.grey[850]
-                                                : Colors.grey[50],
-                                            border: Border.all(
-                                              color: Theme.of(context).primaryColor.withOpacity(
-                                                Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.2,
+                              )
+                            else
+                              Divider(height: 1, color: Theme.of(context).dividerColor.withOpacity(0.1)),
+                            
+                            // Footer (Chips & Input)
+                            Container(
+                              color: Theme.of(context).cardColor,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Quick Questions
+                                  if (_messages.isEmpty && !_isLoading)
+                                    Container(
+                                      constraints: const BoxConstraints(maxHeight: 140),
+                                      child: ListView.builder(
+                                        padding: const EdgeInsets.all(12),
+                                        shrinkWrap: true,
+                                        itemCount: _quickQuestions.length,
+                                        itemBuilder: (context, index) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: 6),
+                                            child: InkWell(
+                                              onTap: () => _sendMessage(predefinedText: _quickQuestions[index]),
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context).brightness == Brightness.dark
+                                                      ? Colors.grey[850]
+                                                      : Colors.grey[50],
+                                                  border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  _quickQuestions[index],
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Theme.of(context).primaryColor,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
                                               ),
                                             ),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            _quickQuestions[index],
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: Theme.of(context).brightness == Brightness.dark
-                                                  ? Colors.white
-                                                  : Theme.of(context).primaryColor,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
+                                          );
+                                        },
                                       ),
-                                    );
-                                  },
-                                ),
-                              )
-                            else if (!_isLoading)
-                              SizedBox(
-                                height: 45,
-                                child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  itemCount: _quickQuestions.length,
-                                  itemBuilder: (context, index) {
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                                      child: ActionChip(
-                                        backgroundColor: Theme.of(context).brightness == Brightness.dark
-                                            ? Colors.grey[850]
-                                            : Colors.grey[100],
-                                        side: BorderSide(
-                                          color: Theme.of(context).primaryColor.withOpacity(
-                                            Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.2,
+                                    )
+                                  else if (!_isLoading)
+                                    SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      child: Row(
+                                        children: _quickQuestions.map((q) => Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                          child: ActionChip(
+                                            label: Text(q, style: const TextStyle(fontSize: 11)),
+                                            onPressed: () => _sendMessage(predefinedText: q),
+                                            padding: EdgeInsets.zero,
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                           ),
-                                          width: 1,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        label: Text(
-                                          _quickQuestions[index],
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Theme.of(context).brightness == Brightness.dark
-                                                ? Colors.white
-                                                : Theme.of(context).primaryColor,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        onPressed: () => _sendMessage(predefinedText: _quickQuestions[index]),
-                                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        )).toList(),
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            // Input Area
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).cardColor,
-                                border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.1))),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _controller,
-                                      style: const TextStyle(fontSize: 14),
-                                      decoration: InputDecoration(
-                                        hintText: "Ask Mahi...",
-                                        hintStyle: const TextStyle(fontSize: 14),
-                                        isDense: true,
-                                        filled: true,
-                                        fillColor: Theme.of(context).dividerColor.withOpacity(0.05),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(24),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                      ),
-                                      onSubmitted: (_) => _sendMessage(),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  CircleAvatar(
-                                    backgroundColor: Theme.of(context).primaryColor,
-                                    child: IconButton(
-                                      onPressed: _sendMessage,
-                                      icon: const Icon(Icons.send, size: 18, color: Colors.white),
+                                  
+                                  // Input Area
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _controller,
+                                            focusNode: _focusNode,
+                                            textInputAction: TextInputAction.send,
+                                            enableInteractiveSelection: true,
+                                            enableSuggestions: false,
+                                            autocorrect: false,
+                                            style: const TextStyle(fontSize: 14),
+                                            decoration: InputDecoration(
+                                              hintText: "Ask Mahi...",
+                                              isDense: true,
+                                              filled: true,
+                                              fillColor: Theme.of(context).dividerColor.withOpacity(0.05),
+                                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(24),
+                                                borderSide: BorderSide.none,
+                                              ),
+                                            ),
+                                            onSubmitted: (_) => _sendMessage(),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundColor: Theme.of(context).primaryColor,
+                                          child: IconButton(
+                                            onPressed: _sendMessage,
+                                            icon: const Icon(Icons.send, size: 18, color: Colors.white),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],

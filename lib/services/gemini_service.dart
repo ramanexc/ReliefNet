@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 
 class GeminiService {
   static const _apiKey = String.fromEnvironment('GOOGLE_API_KEY');
-  static const _modelName = 'gemini-3.1-flash-lite';
+  static const _modelName = 'gemini-2.5-flash';
 
   static GenerativeModel? _model;
 
@@ -36,9 +36,24 @@ class GeminiService {
     try {
       final content = [Content.text(prompt)];
       final response = await _getModel.generateContent(content);
+      if (response.text == null) {
+        print('GEMINI ERROR: Response text is null. Candidates: ${response.candidates.length}');
+        if (response.candidates.isNotEmpty) {
+          print('GEMINI FINISH REASON: ${response.candidates.first.finishReason}');
+        }
+        return "I'm sorry, I encountered a safety filter or a technical issue. Please try rephrasing your request.";
+      }
       return response.text;
     } catch (e) {
       print('GEMINI ERROR: $e');
+      if (e.toString().contains('model not found')) {
+        print('GEMINI TIP: The model name "$_modelName" was not found. Using a stable version like "gemini-2.0-flash" or "gemini-1.5-flash" is recommended if "$_modelName" is unavailable.');
+        return "System configuration error: Model not found.";
+      }
+      if (e.toString().contains('API key not valid')) {
+        print('GEMINI TIP: Your API key appears to be invalid. Ensure it starts with "AIza" and is copied correctly from Google AI Studio.');
+        return "System configuration error: Invalid API Key.";
+      }
       return null;
     }
   }
