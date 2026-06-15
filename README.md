@@ -13,11 +13,11 @@
 
 **NGO field reporting & volunteer dispatch — powered by Gemini AI**
 
-[![Google Solution Challenge](https://img.shields.io/badge/Google_Solution_Challenge-2026-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/community/gdsc-solution-challenge)
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
-[![Firebase](https://img.shields.io/badge/Firebase-Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com)
-[![Gemini AI](https://img.shields.io/badge/Gemini-AI-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
-[![Version](https://img.shields.io/badge/version-2.0.0-22C55E?style=for-the-badge)](https://github.com/your-username/reliefnet/releases)
+<a href="https://developers.google.com/community/gdsc-solution-challenge" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Google_Solution_Challenge-2026-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google Solution Challenge"></a>
+<a href="https://flutter.dev" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter"></a>
+<a href="https://firebase.google.com" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Firebase-Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase"></a>
+<a href="https://ai.google.dev" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Gemini-AI-8E75B2?style=for-the-badge&logo=google&logoColor=white" alt="Gemini AI"></a>
+<a href="https://github.com/your-username/reliefnet/releases" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/version-2.0.0-22C55E?style=for-the-badge" alt="Version"></a>
 
 <br />
 
@@ -76,7 +76,7 @@ Every report is instantly analyzed by **Gemini AI** to surface urgency insights,
 
 Get the latest version of **ReliefNet APK**:
 
-👉 [Download Latest APK](https://github.com/ReliefNet/ReliefNet/releases/download/v2.0.0/reliefnet-v2.0.0.apk)
+👉 <a href="https://github.com/ReliefNet/ReliefNet/releases/download/v2.0.0/reliefnet-v2.0.0.apk" target="_blank" rel="noopener">Download Latest APK</a>
 
 > ⚠️ Enable "Install from unknown sources" on your Android device before installing.
 
@@ -86,7 +86,7 @@ Get the latest version of **ReliefNet APK**:
 
 Watch ReliefNet in action:
 
-[![Demo Video](https://img.youtube.com/vi/aYeGnr154mM/maxresdefault.jpg)](https://youtu.be/aYeGnr154mM)
+<a href="https://youtu.be/aYeGnr154mM" target="_blank" rel="noopener"><img src="https://img.youtube.com/vi/aYeGnr154mM/maxresdefault.jpg" alt="Demo Video"></a>
 
 ---
 
@@ -94,7 +94,7 @@ Watch ReliefNet in action:
 
 View our Google Solution Challenge 2026 presentation:
 
-👉 [Open Presentation on Canva](https://canva.link/pwl8j4vw56z8eg9)
+👉 <a href="https://canva.link/pwl8j4vw56z8eg9" target="_blank" rel="noopener">Open Presentation on Canva</a>
 
 ---
 
@@ -256,7 +256,7 @@ ReliefNet/
 
 - Flutter SDK `>=3.0.0`
 - Firebase project (Firestore, Auth, Storage enabled)
-- [Gemini API key](https://aistudio.google.com/apikey)
+- <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Gemini API key</a>
 - Google Maps API key
 
 ### Setup
@@ -345,21 +345,30 @@ Firebase will prompt you with a direct link to create it on first run.
 <tr>
 <td align="center" width="33%">
 <b>Ramandeep Singh</b> 👑<br/>
-<sub>Team Lead · Flutter Development · UI/UX · Gemini AI · Integration</sub>
+<sub>Team Lead · Flutter Development · UI/UX · Gemini AI · Integration</sub><br/>
+<br/>
+<a href="https://github.com/ramanexc" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub"></a>
+<a href="https://www.linkedin.com/in/ramanexc/" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn"></a>
 </td>
 <td align="center" width="33%">
 <b>Japneet Singh</b><br/>
-<sub>Flutter Development · Firebase Backend · Auth · Gemini AI · Integration</sub>
+<sub>Flutter Development · Firebase Backend · Auth · Gemini AI · Integration</sub><br/>
+<br/>
+<a href="https://github.com/Japneet2006" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub"></a>
+<a href="https://www.linkedin.com/in/japneet-singh-084899375/" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn"></a>
 </td>
 <td align="center" width="33%">
 <b>Amandeep Singh</b><br/>
-<sub>Presentation · Video Editing · Logo / App Icon Design</sub>
+<sub>Presentation · Video Editing · Logo / App Icon Design</sub><br/>
+<br/>
+<a href="https://github.com/your-github" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub"></a>
+<a href="https://www.linkedin.com/in/amandeep-singh-b40907306/" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn"></a>
 </td>
 </tr>
 </table>
 
 **Institution:** GTBIT, New Delhi  
-**Submission:** Google Solution Challenge 2026
+**Submission:** <a href="https://developers.google.com/community/gdsc-solution-challenge" target="_blank" rel="noopener">Google Solution Challenge 2026</a>
 
 ---
 
@@ -374,7 +383,7 @@ Submitted as part of the Google Solution Challenge 2026. Built for educational a
 <b>ReliefNet v2.0.0</b> · Made with ❤️ for communities
 <br/><br/>
 
-[![GTBIT](https://img.shields.io/badge/GTBIT-New_Delhi-blue?style=flat-square)](https://gtbit.edu.in)
-[![Solution Challenge](https://img.shields.io/badge/Google-Solution_Challenge_2026-4285F4?style=flat-square&logo=google)](https://developers.google.com/community/gdsc-solution-challenge)
+<a href="https://gtbit.edu.in" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/GTBIT-New_Delhi-blue?style=flat-square" alt="GTBIT"></a>
+<a href="https://developers.google.com/community/gdsc-solution-challenge" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Google-Solution_Challenge_2026-4285F4?style=flat-square&logo=google" alt="Solution Challenge"></a>
 
 </div>
