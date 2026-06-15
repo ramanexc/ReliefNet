@@ -513,6 +513,50 @@ class _ReportPageState extends State<ReportPage> {
     final submittedLat = _latitude!;
     final submittedLng = _longitude!;
 
+    setState(() => _isSubmitting = true);
+
+    // 1. Proactive Spam Check: Same Account + Same Location
+    bool isLocationSpam = false;
+    if (user != null) {
+      try {
+        // Query for reports from this user. 
+        // Using a simpler query to avoid index errors, then filtering in memory.
+        final existingReports = await FirebaseFirestore.instance
+            .collection('reports')
+            .where('submittedBy', isEqualTo: user.uid)
+            .limit(15)
+            .get();
+
+        int nearCount = 0;
+        for (var doc in existingReports.docs) {
+          final data = doc.data();
+          final String? status = data['status'];
+          if (status == 'completed') continue; // Ignore resolved reports
+
+          final double? lat = data['lat'];
+          final double? lng = data['lng'];
+          if (lat != null && lng != null) {
+            final distance = Geolocator.distanceBetween(
+              submittedLat,
+              submittedLng,
+              lat,
+              lng,
+            );
+            if (distance < 100) {
+              // 100 meter radius
+              nearCount++;
+            }
+          }
+        }
+
+        if (nearCount >= 2) {
+          isLocationSpam = true;
+        }
+      } catch (e) {
+        print("Duplicate location check failed: $e");
+      }
+    }
+
     // Connection Check
     final hasConnection = await OfflineReportService.hasInternet();
     if (!hasConnection) {
@@ -575,15 +619,26 @@ class _ReportPageState extends State<ReportPage> {
         }
       }
 
-      final credibility = await GeminiService.checkCredibility(
+      Map<String, dynamic> credibility = await GeminiService.checkCredibility(
         issueType: submittedType,
         description: submittedDesc,
         imageBytesList: imageBytesList.isNotEmpty ? imageBytesList : null,
       );
 
+      // 3. Override if location spam detected
+      if (isLocationSpam) {
+        credibility = {
+          'score': 10,
+          'isSpam': true,
+          'status': 'suspected_spam',
+          'reason': 'Multiple reports detected from the same user at this specific location. Resource protection protocol activated.',
+          'spamProbability': 95,
+        };
+      }
+
       if (!mounted) return;
 
-      // 3. User Warning if suspected spam (skip warning for immediate life-threatening emergencies)
+      // 4. User Warning if suspected spam (skip warning for immediate life-threatening emergencies)
       if (!_isLifeThreatening &&
           (credibility['status'] == 'suspected_spam' ||
               credibility['isSpam'] == true)) {
@@ -625,8 +680,8 @@ class _ReportPageState extends State<ReportPage> {
         'lat': submittedLat,
         'lng': submittedLng,
         'timestamp': FieldValue.serverTimestamp(),
-        'status': credibility['status'] == 'suspected_spam'
-            ? 'flagged'
+        'status': credibility['status'] == 'suspected_spam' || credibility['isSpam'] == true
+            ? 'suspected_spam'
             : 'unassigned',
         'assignedVolunteers': [],
         'submittedBy': user?.uid ?? 'anonymous',

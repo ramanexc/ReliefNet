@@ -138,22 +138,29 @@ Keep solutions practical and specific to the issue type.
     List<Uint8List>? imageBytesList,
   }) async {
     final prompt = '''
-As an Emergency Forensic Validator, analyze this report for credibility and spam.
-REPORTED ISSUE: $issueType
-DESCRIPTION: $description
+As an Elite Emergency Situational Analyst, perform a deep forensic validation of this field report. 
+Your goal is to protect emergency resources from PRANKS, JOKES, TEST MESSAGES, and GIBBERISH.
 
-TASKS:
-1. SPAM DETECTION: Check for meaningless text (asdf, hello), jokes, test messages, or gibberish.
-2. VISUAL TRUTH: If images are provided, do they show a real emergency? Reject memes, selfies, screenshots, or unrelated photos.
-3. CONSISTENCY: Does the image match the described issue? (e.g., if "Fire" is reported, are flames/smoke visible?)
-4. TYPOS/CLARITY: Is the description clear enough for responders?
+REPORTED CATEGORY: $issueType
+SUBMITTED DESCRIPTION: "$description"
 
-STRICT JSON RESPONSE (No markdown):
+VALIDATION PROTOCOLS:
+1. GIBBERISH & MEANINGLESSNESS: Is the description composed of random letters (asdf, qwerty), nonsense character repetition (aaaaaaaa, !!!!), one-word greetings (hi, hello), or obvious placeholders? If yes, 100% spam.
+2. JOKES & MEMES: Does the text contain humor, sarcasm, or references to popular culture/memes instead of an emergency?
+3. TEST MESSAGES: Is it clearly a test (e.g., "testing app", "ignore this", "test 123")? Mark as spam.
+4. VISUAL FORENSICS (if images provided): 
+   - DO NOT accept black screens, screenshots of other apps, selfies, memes, or extreme close-ups of random surfaces (table, floor, walls).
+   - The image MUST provide visual evidence of the reported issue.
+   - If "Medical Assistance" is reported, do we see a patient or a hospital?
+   - If "Rescue Required" is reported, do we see flooding, fire, or trapped individuals?
+5. CONTEXTUAL MATCH: Does the text match the category? (e.g. reporting a "Missing Person" but writing "my car is broken").
+
+STRICT JSON OUTPUT (No markdown):
 {
-  "score": 0-100 (Credibility score: 100 is high truth),
-  "isSpam": boolean,
+  "score": 0-100 (Credibility: 0-30=SPAM, 31-70=NEEDS REVIEW, 71-100=VERIFIED),
+  "isSpam": boolean (Set true if protocol 1, 2, 3, or 4 fails),
   "status": "verified | likely_genuine | needs_review | suspected_spam",
-  "reason": "Clear explanation of the verdict",
+  "reason": "Detailed forensic explanation of why this was approved or rejected",
   "spamProbability": 0-100
 }
 ''';

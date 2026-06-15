@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
@@ -12,15 +11,13 @@ class NotificationService {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const DarwinInitializationSettings iOSSettings = DarwinInitializationSettings();
-    const InitializationSettings initSettings = InitializationSettings(
+    final InitializationSettings settings = InitializationSettings(
       android: androidSettings,
       iOS: iOSSettings,
     );
 
-    // Following the specific error message: named parameter 'settings' is required
     await _notificationsPlugin.initialize(
-      initSettings, 
-      // If positional fails, and it asks for 'settings', I'll use initializationSettings or settings
+      settings: settings,
     );
   }
 
@@ -38,7 +35,6 @@ class NotificationService {
       ),
     );
 
-    // Following the specific error message: named parameter 'id' is required
     await _notificationsPlugin.show(
       id: 0,
       title: title,
