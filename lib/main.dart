@@ -86,7 +86,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return Stack(
           children: [
-            ?child,
+            child ?? const SizedBox.shrink(),
             const _MahiAssistantWrapper(),
           ],
         );

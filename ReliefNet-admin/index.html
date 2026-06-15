@@ -4,468 +4,356 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="ReliefNet Admin Panel — Manage disaster relief reports, volunteer applications, and coordination.">
-<meta name="color-scheme" content="light dark">
 <title>ReliefNet Admin</title>
 
 <!-- Leaflet CSS & JS -->
 <link rel="stylesheet" href="css/leaflet.css">
 <script src="js/leaflet.js"></script>
-
-<!-- Chart.js -->
 <script src="js/chart.js"></script>
 
-
 <link rel="stylesheet" href="css/style.css">
-<script>
-{
-  const theme = localStorage.getItem("theme");
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  if (theme === 'dark' || (!theme && prefersDark)) {
-    document.documentElement.classList.add('dark-mode');
-  }
-}
-</script>
 </head>
-<body>
+<body class="eoc-body">
 
-<!-- ─── AUTH ─────────────────────────────────────────────── -->
+<!-- ─── AUTH SCREEN ──────────────────────────────────────── -->
 <div id="auth-screen">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <div class="auth-logo-icon">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;color:white;"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><path d="M2 12h20"></path></svg>
+  <div class="auth-hero">
+    <div class="auth-hero-content">
+      <div class="ops-badge">ReliefNet</div>
+      <h1>ReliefNet <br>Admin Panel</h1>
+      <p>Manage disaster relief reports, volunteer applications, and field coordination from a single integrated dashboard.</p>
+
+      <div class="auth-stats-strip">
+        <div class="auth-stat-item">
+          <span class="val">24/7</span>
+          <span class="lab">Operations</span>
+        </div>
+        <div class="auth-stat-item">
+          <span class="val">LIVE</span>
+          <span class="lab">Data Stream</span>
+        </div>
       </div>
-      <div>
-        <span>ReliefNet</span>
-        <small>Admin Panel</small>
+    </div>
+  </div>
+
+  <div class="auth-form-container">
+    <div class="auth-card" style="backdrop-filter: blur(10px); background: rgba(var(--surface-rgb), 0.8);">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+        </div>
+        <div>
+          <span style="font-size:20px; font-weight:800; display:block; line-height:1; color: var(--text-primary);">ReliefNet</span>
+          <small style="font-size:10px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.1em;">Admin Panel</small>
+        </div>
       </div>
+
+      <h2 style="font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Welcome back</h2>
+      <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 28px;">Sign in with your admin account to continue</p>
+
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="email-input" placeholder="admin@reliefnet.app" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="password-wrapper">
+          <input type="password" id="pass-input" placeholder="••••••••" autocomplete="current-password">
+          <button type="button" class="password-toggle" id="pass-toggle" onclick="togglePasswordVisibility()" aria-label="Toggle password visibility">
+            <svg class="icon" viewBox="0 0 24 24" id="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="signIn()" style="width: 100%; margin-top:20px;">Sign In</button>
+      <div id="auth-error" style="color: var(--critical); font-size: 12px; margin-top: 16px; text-align: center; display: none;"></div>
     </div>
-    <h2>Welcome back</h2>
-    <p>Sign in with your admin account to continue</p>
-    <div class="form-group">
-      <label for="email-input">Email</label>
-      <input type="email" id="email-input" placeholder="admin@reliefnet.app" autocomplete="email">
-    </div>
-    <div class="form-group">
-      <label for="pass-input">Password</label>
-      <input type="password" id="pass-input" placeholder="••••••••" autocomplete="current-password">
-    </div>
-    <button class="btn-primary" onclick="signIn()">Sign In</button>
-    <div id="auth-error"></div>
   </div>
 </div>
 
 <!-- ─── APP ──────────────────────────────────────────────── -->
 <div id="app">
 
-  <!-- SIDEBAR OVERLAY (mobile) -->
-  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
-
   <!-- HAMBURGER (mobile) -->
-  <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Toggle navigation menu">
-    <span></span><span></span><span></span>
+  <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Toggle navigation menu" style="display: none; position: fixed; top: 16px; left: 16px; z-index: 150; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px; cursor: pointer;">
+    <svg class="icon" viewBox="0 0 24 24" style="color: var(--text-primary);"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
   </button>
 
   <!-- SIDEBAR -->
-  <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
-    <div class="sidebar-logo">
-      <div class="sidebar-logo-icon">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;color:white;"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"></path><circle cx="12" cy="12" r="1"></circle></svg>
-      </div>
-      <div>
-        <div class="sidebar-logo-text">ReliefNet</div>
-        <div class="sidebar-logo-sub">Admin Panel</div>
-      </div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo-text">ReliefNet <span>Admin Panel</span></div>
     </div>
+
     <nav class="sidebar-nav">
-      <button class="nav-item active" onclick="showPage('overview', this)" type="button">
-        <span class="nav-icon" aria-hidden="true">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
-        </span> Overview
+      <button class="nav-item active" onclick="showPage('overview', this)">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        Overview
       </button>
-      <button class="nav-item" onclick="showPage('reports-hub', this)" type="button">
-        <span class="nav-icon" aria-hidden="true">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        </span> Reports
-        <span class="nav-badge" id="reports-badge" style="display:none" aria-label="Active reports count"></span>
+      <button class="nav-item" onclick="showPage('reports-list', this)">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        Reports
+        <span class="nav-badge" id="reports-badge" style="display:none"></span>
       </button>
-      <button class="nav-item" onclick="showPage('applications', this)" type="button">
-        <span class="nav-icon" aria-hidden="true">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6M9 14h6"></path></svg>
-        </span> Applications
-        <span class="nav-badge" id="apps-badge" style="display:none" aria-label="Pending applications count"></span>
+      <button class="nav-item" onclick="showPage('applications', this)">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>
+        Applications
+        <span class="nav-badge" id="apps-badge" style="display:none"></span>
       </button>
-      <button class="nav-item" onclick="showPage('volunteers', this)" type="button">
-        <span class="nav-icon" aria-hidden="true">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        </span> Volunteers
+      <button class="nav-item" onclick="showPage('volunteers', this)">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        Volunteers
       </button>
-      <button class="nav-item" onclick="showPage('broadcasts', this)" type="button">
-        <span class="nav-icon" aria-hidden="true">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path><path d="M2 8c0-2.21.896-4.21 2.344-5.656"></path><path d="M19.656 2.344C21.104 3.79 22 5.79 22 8"></path></svg>
-        </span> Alerts
+      <button class="nav-item" onclick="showPage('broadcasts', this)">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        Broadcasts
       </button>
     </nav>
+
     <div class="sidebar-footer">
-      <button class="btn-theme-toggle" onclick="toggleTheme()" type="button" aria-label="Toggle theme">
-        <span class="theme-icon" aria-hidden="true">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#6366F1"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-        </span> <span class="theme-text">Dark Mode</span>
+      <button class="nav-item" id="theme-toggle-btn" onclick="toggleTheme()" style="margin-bottom:12px;">
+        <span id="theme-toggle-icon" style="display: flex; align-items: center;">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </span>
+        <span id="theme-toggle-text">Dark Mode</span>
       </button>
-      <div class="admin-info">
-        <div class="admin-avatar" id="admin-avatar" aria-hidden="true">A</div>
-        <div class="admin-email" id="admin-email">—</div>
+
+      <div class="admin-info" style="background:transparent; padding:0; margin-bottom:16px;">
+        <div class="admin-avatar" id="admin-avatar" style="border: 2px solid rgba(255,255,255,0.1);">A</div>
+        <div style="overflow:hidden;">
+          <div class="admin-email" id="admin-email" style="color:white; font-weight:600;">—</div>
+          <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase;">Admin Account</div>
+        </div>
       </div>
-      <button class="btn-logout" onclick="signOut()">Sign Out</button>
+      <button class="btn-logout" onclick="signOut()" style="border-color: rgba(255,255,255,0.1); color:rgba(255,255,255,0.5);">Sign Out</button>
     </div>
   </aside>
 
-  <!-- MAIN CONTENT -->
   <main class="main">
+
+    <!-- TOP COMMAND BAR -->
+    <header class="command-bar">
+      <div class="command-bar-left">
+        <div class="command-bar-item">
+          <label>Operational Date</label>
+          <span id="overview-date">—</span>
+        </div>
+        <div class="command-bar-item">
+          <label>Status</label>
+          <div class="sync-status" style="border:none; background:transparent; padding:0;">
+            <span class="sync-dot" style="background: var(--success); width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px;"></span>
+            <span class="sync-text" style="color:var(--success); font-weight:700;">Live</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="command-bar-right">
+        <button class="btn-back" onclick="forceSync()" style="background:var(--bg); border:1px solid var(--border);">
+          <svg class="icon" viewBox="0 0 24 24" style="width:14px; height:14px;"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+          Sync Data
+        </button>
+      </div>
+    </header>
+
+    <!-- METRICS STRIP -->
+    <div class="metrics-strip">
+      <div class="metric-widget" onclick="goToReports('all')" style="cursor:pointer;">
+        <span class="label">Total Reports</span>
+        <span class="value" id="stat-total">—</span>
+      </div>
+      <div class="metric-widget" onclick="goToReports('active')" style="cursor:pointer;">
+        <span class="label text-critical">Active Reports</span>
+        <span class="value text-critical" id="stat-active">—</span>
+      </div>
+      <div class="metric-widget" onclick="goToReports('completed')" style="cursor:pointer;">
+        <span class="label text-success">Resolved Reports</span>
+        <span class="value text-success" id="stat-resolved">—</span>
+      </div>
+      <div class="metric-widget" onclick="goToApps('pending')" style="cursor:pointer;">
+        <span class="label" style="color:var(--warning)">Pending Applications</span>
+        <span class="value" id="stat-pending-apps" style="color:var(--warning)">—</span>
+      </div>
+      <div class="metric-widget" onclick="goToReports('spam')" style="cursor:pointer;">
+        <span class="label">Spam Reports</span>
+        <span class="value" id="stat-spam">—</span>
+      </div>
+    </div>
 
     <!-- OVERVIEW -->
     <div class="page active" id="page-overview">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Overview</div>
-          <div class="page-subtitle" id="overview-date">—</div>
+      <div class="ops-grid">
+        <div class="map-container">
+          <div id="overview-map"></div>
         </div>
-        <div class="sync-status">
-          <span class="sync-dot"></span>
-          <span class="sync-text">Live</span>
-          <button class="sync-btn" onclick="forceSync()" title="Refresh data">
-            <span class="sync-icon">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            </span>
-          </button>
-        </div>
-      </div>
-      <div class="stats-grid">
-        <button class="stat-card" onclick="goToReports('all')" type="button">
-          <div class="stat-header">
-            <span class="stat-icon-wrapper badge-blue">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            </span>
-            <span class="stat-chevron">›</span>
-          </div>
-          <div class="stat-value" id="stat-total">—</div>
-          <div class="stat-label">Total Reports</div>
-        </button>
-        <button class="stat-card" onclick="goToReports('active')" type="button">
-          <div class="stat-header">
-            <span class="stat-icon-wrapper badge-red">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-            </span>
-            <span class="stat-chevron">›</span>
-          </div>
-          <div class="stat-value" id="stat-active" style="color:var(--blue)">—</div>
-          <div class="stat-label">Active Reports</div>
-        </button>
-        <button class="stat-card" onclick="goToReports('completed')" type="button">
-          <div class="stat-header">
-            <span class="stat-icon-wrapper badge-green">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            </span>
-            <span class="stat-chevron">›</span>
-          </div>
-          <div class="stat-value" id="stat-resolved" style="color:var(--green)">—</div>
-          <div class="stat-label">Resolved Reports</div>
-        </button>
-        <button class="stat-card" onclick="goToApps('pending')" type="button">
-          <div class="stat-header">
-            <span class="stat-icon-wrapper badge-orange">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="17" y1="11" x2="23" y2="11"></line></svg>
-            </span>
-            <span class="stat-chevron">›</span>
-          </div>
-          <div class="stat-value" id="stat-pending-apps" style="color:var(--orange)">—</div>
-          <div class="stat-label">Pending Applications</div>
-        </button>
-        <button class="stat-card" onclick="goToReports('spam')" type="button">
-          <div class="stat-header">
-            <span class="stat-icon-wrapper badge-red">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-            </span>
-            <span class="stat-chevron">›</span>
-          </div>
-          <div class="stat-value" id="stat-spam" style="color:var(--red)">—</div>
-          <div class="stat-label">Spam Reports</div>
-        </button>
-      </div>
 
-      <!-- MAP SECTION -->
-      <div class="card" style="margin-bottom: 24px;">
-        <div class="card-header"><div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;margin-right:6px;vertical-align:-2px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>Active Reports Map</div></div>
-        <div id="overview-map"></div>
-      </div>
-
-      <div class="overview-grid">
-        <div class="card">
-          <div class="card-header"><div class="card-title">Recent Reports</div></div>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Type</th><th>Urgency</th><th>Status</th><th>Time</th></tr></thead>
-              <tbody id="overview-reports-body">
-                <tr><td colspan="4" class="loading"><span class="spinner"></span>Loading...</td></tr>
-              </tbody>
-            </table>
+        <div class="feed-panel">
+          <div class="panel-header">
+            <h3>Recent Reports</h3>
           </div>
-        </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">📈 Analytics Dashboard</div></div>
-          <div class="charts-container">
-            <div class="chart-box">
-              <div class="chart-title">Reports by Category</div>
-              <div class="chart-canvas-wrapper"><canvas id="chart-categories"></canvas></div>
-            </div>
-            <div class="chart-box">
-              <div class="chart-title">Reports by Urgency</div>
-              <div class="chart-canvas-wrapper"><canvas id="chart-urgency"></canvas></div>
-            </div>
-            <div class="chart-box">
-              <div class="chart-title">Submission Activity (Last 7 Days)</div>
-              <div class="chart-canvas-wrapper"><canvas id="chart-trends"></canvas></div>
-            </div>
+          <div class="incident-feed">
+             <table class="enterprise-table" style="border:none;">
+               <tbody id="overview-reports-body">
+                 <!-- Populated by JS -->
+               </tbody>
+             </table>
+          </div>
+
+          <div class="panel-header" style="border-top:1px solid var(--border);">
+            <h3>Analytics Dashboard</h3>
+          </div>
+          <div style="padding:20px; height:200px;">
+            <canvas id="chart-categories"></canvas>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- REPORTS HUB -->
-    <div class="page" id="page-reports-hub">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Reports Dashboard</div>
-          <div class="page-subtitle">Select a category to manage community reports</div>
-        </div>
-      </div>
-      <div class="reports-hub-grid">
-        <button class="hub-card" onclick="openReportsView('active')">
-          <div class="hub-icon-circle" style="background: var(--blue-light); color: var(--blue);">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          </div>
-          <div class="hub-title">Active Reports</div>
-          <div class="hub-desc">Manage ongoing emergencies and field assignments</div>
-          <div class="hub-stats" id="hub-stats-active">... active</div>
-        </button>
-        <button class="hub-card" onclick="openReportsView('resolved')">
-          <div class="hub-icon-circle" style="background: var(--green-light); color: var(--green);">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          </div>
-          <div class="hub-title">Resolved Reports</div>
-          <div class="hub-desc">Review completed tasks and historical relief data</div>
-          <div class="hub-stats" id="hub-stats-resolved">... resolved</div>
-        </button>
-        <button class="hub-card" onclick="openReportsView('all')">
-          <div class="hub-icon-circle" style="background: var(--gray-100); color: var(--gray-600);">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-          </div>
-          <div class="hub-title">All Reports</div>
-          <div class="hub-desc">Browse complete archive of all community submissions</div>
-          <div class="hub-stats" id="hub-stats-all">... total</div>
-        </button>
-      </div>
-    </div>
-
-    <!-- REPORTS LIST VIEW -->
+    <!-- REPORTS MANAGEMENT (Side-by-Side Dual Column) -->
     <div class="page" id="page-reports-list">
-      <div class="page-header">
-        <div style="display:flex; align-items:center; gap:16px;">
-          <button class="btn-back" onclick="showPage('reports-hub')">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-            Back
-          </button>
-          <div>
-            <div class="page-title" id="reports-list-title">Active Reports</div>
-            <div class="page-subtitle">Track and manage community incidents</div>
-          </div>
+      <div style="padding: 24px 32px 0;">
+        <div class="filter-row" style="margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-right: 8px;">Status:</span>
+          <button class="filter-btn status-filter-btn active" onclick="filterReports('all', 'status', this)">All</button>
+          <button class="filter-btn status-filter-btn" onclick="filterReports('active', 'status', this)">Active</button>
+          <button class="filter-btn status-filter-btn" onclick="filterReports('completed', 'status', this)">Resolved</button>
+          <button class="filter-btn status-filter-btn" onclick="filterReports('spam', 'status', this)">Spam</button>
         </div>
-        <div class="sync-status">
-          <span class="sync-dot"></span>
-          <span class="sync-text">Live</span>
-          <button class="sync-btn" onclick="forceSync()" title="Refresh data">
-            <span class="sync-icon">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            </span>
-          </button>
+        <div class="filter-row" style="margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-right: 8px;">Urgency:</span>
+          <button class="filter-btn urgency-filter-btn active" onclick="filterReports('all', 'urgency', this)">All</button>
+          <button class="filter-btn urgency-filter-btn" onclick="filterReports('High', 'urgency', this)">High</button>
+          <button class="filter-btn urgency-filter-btn" onclick="filterReports('Medium', 'urgency', this)">Medium</button>
+          <button class="filter-btn urgency-filter-btn" onclick="filterReports('Low', 'urgency', this)">Low</button>
         </div>
-      </div>
-
-      <div class="card" style="margin-bottom: 20px; padding: 12px 20px;">
-        <div style="display:flex; align-items:center; gap:16px; width:100%; flex-wrap: wrap;">
-          <div class="search-container" style="flex:1; margin-left:0; min-width: 250px;">
-            <input type="text" id="reports-search" placeholder="Search by type, description or ID..." oninput="searchReports(this.value)" class="search-input" style="width:100%;">
-          </div>
-          <div id="spam-toggle-container" style="display:flex; align-items:center; gap:8px;">
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-600);">
-              <input type="checkbox" id="show-spam-toggle" onchange="toggleSpamView()" style="width:16px; height:16px; cursor:pointer;">
-              Include Spam / Flagged
-            </label>
-          </div>
-          <button class="filter-btn btn-export" onclick="exportReports()" type="button" style="margin-left:auto;">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export CSV
-          </button>
+        <div class="filter-row" style="margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-right: 8px;">Category:</span>
+          <button class="filter-btn type-filter-btn active" onclick="filterReports('all', 'incident', this)">All</button>
+          <button class="filter-btn type-filter-btn" onclick="filterReports('Food Assistance', 'incident', this)">Food Assistance</button>
+          <button class="filter-btn type-filter-btn" onclick="filterReports('Medical Assistance', 'incident', this)">Medical Assistance</button>
+          <button class="filter-btn type-filter-btn" onclick="filterReports('Shelter Assistance', 'incident', this)">Shelter Assistance</button>
+          <button class="filter-btn type-filter-btn" onclick="filterReports('Water & Sanitation', 'incident', this)">Water & Sanitation</button>
+          <button class="filter-btn type-filter-btn" onclick="filterReports('Rescue Required', 'incident', this)">Rescue Required</button>
+          <button class="filter-btn type-filter-btn" onclick="filterReports('Utilities & Infrastructure', 'incident', this)">Utilities & Infrastructure</button>
+          <button class="filter-btn type-filter-btn" onclick="filterReports('Other', 'incident', this)">Other</button>
         </div>
       </div>
 
-      <div class="card">
-        <div class="table-scroll">
-          <table style="width:100%">
-            <thead><tr><th>Incident</th><th>Description</th><th>Priority</th><th>Submitted By</th><th>Time</th><th>Action</th></tr></thead>
-            <tbody id="reports-list-body">
-              <tr><td colspan="6" class="loading"><span class="spinner"></span>Loading...</td></tr>
-            </tbody>
-          </table>
+      <div class="dual-column-layout">
+        <!-- ACTIVE COLUMN -->
+        <div class="report-col">
+          <div class="col-header" style="border-top: 4px solid var(--critical);">
+            <h2 class="page-title" style="color: var(--text-primary);">Active Reports</h2>
+            <div class="search-container" style="margin-left:0;">
+              <input type="text" id="reports-search" placeholder="Search reports..." oninput="searchReports(this.value)" class="search-input" style="width:160px;">
+            </div>
+          </div>
+          <div class="col-scroll">
+             <table class="enterprise-table">
+               <thead><tr><th>Type</th><th>Time</th><th>Action</th></tr></thead>
+               <tbody id="reports-active-body"></tbody>
+             </table>
+          </div>
+        </div>
+
+        <!-- RESOLVED COLUMN -->
+        <div class="report-col">
+          <div class="col-header" style="border-top: 4px solid var(--success);">
+            <h2 class="page-title" style="color: var(--text-primary);">Resolved Reports</h2>
+            <button class="filter-btn btn-export" onclick="exportReports()">
+              <svg class="icon" viewBox="0 0 24 24" style="width:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Export CSV
+            </button>
+          </div>
+          <div class="col-scroll">
+             <table class="enterprise-table">
+               <thead><tr><th>Type</th><th>Time</th><th>Action</th></tr></thead>
+               <tbody id="reports-resolved-body"></tbody>
+             </table>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- APPLICATIONS -->
+    <!-- APPLICATIONS PAGE -->
     <div class="page" id="page-applications">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Volunteer Applications</div>
-          <div class="page-subtitle">Review and approve volunteer requests</div>
-        </div>
-        <div class="sync-status">
-          <span class="sync-dot"></span>
-          <span class="sync-text">Live</span>
-          <button class="sync-btn" onclick="forceSync()" title="Refresh data">
-            <span class="sync-icon">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            </span>
-          </button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Applications</div>
-          <div class="filter-row">
+      <div style="padding:32px;">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title" style="color: var(--text-primary);">Volunteer Applications</h2>
+            <p class="page-subtitle" style="color: var(--text-secondary);">Review and approve volunteer requests</p>
+          </div>
+          <div class="filter-row" style="display: flex; gap: 8px;">
             <button class="filter-btn active" onclick="filterApps('all', this)">All</button>
-            <button class="filter-btn" onclick="filterApps('pending', this)">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Pending
-            </button>
-            <button class="filter-btn" onclick="filterApps('approved', this)">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Approved
-            </button>
-            <button class="filter-btn" onclick="filterApps('rejected', this)">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Rejected
-            </button>
-            <button class="filter-btn btn-export" onclick="exportApps()" type="button">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export CSV
-            </button>
-          </div>
-          <div class="search-container">
-            <input type="text" id="apps-search" placeholder="Search applications..." oninput="searchApps(this.value)" class="search-input">
+            <button class="filter-btn" onclick="filterApps('pending', this)">Pending</button>
+            <button class="filter-btn" onclick="filterApps('approved', this)">Approved</button>
+            <button class="filter-btn" onclick="filterApps('rejected', this)">Rejected</button>
           </div>
         </div>
-        <div class="table-scroll">
-          <table>
-            <thead><tr><th>Email</th><th>Skills</th><th>Reason</th><th>Status</th><th>Applied</th><th>Action</th></tr></thead>
-            <tbody id="apps-body">
-              <tr><td colspan="6" class="loading"><span class="spinner"></span>Loading...</td></tr>
-            </tbody>
+
+        <div class="card">
+          <table class="enterprise-table">
+            <thead><tr><th>Email</th><th>Skills</th><th>Status</th><th>Applied</th><th>Action</th></tr></thead>
+            <tbody id="apps-body"></tbody>
           </table>
         </div>
-        <div class="pagination-bar" id="apps-pagination" style="display:none"></div>
       </div>
     </div>
 
-    <!-- BROADCASTS -->
-    <div class="page" id="page-broadcasts">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Emergency Broadcasts</div>
-          <div class="page-subtitle">Send urgent alerts to all app users</div>
-        </div>
-      </div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px;">
-        <!-- SEND ALERT FORM -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">New Alert</div>
-          </div>
-          <div style="padding:24px;">
-            <div class="form-group">
-              <label>Alert Title</label>
-              <input type="text" id="alert-title" placeholder="e.g. Flash Flood Warning">
-            </div>
-            <div class="form-group">
-              <label>Alert Level</label>
-              <select id="alert-level" style="width:100%; padding:10px; border-radius:10px; border:1.5px solid var(--gray-200); background:var(--input-bg); color:var(--text-main); font-family:inherit; outline:none;">
-                <option value="Critical">Critical (Red)</option>
-                <option value="Warning">Warning (Orange)</option>
-                <option value="Info">Information (Blue)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Detailed Message</label>
-              <textarea id="alert-message" style="width:100%; min-height:120px; padding:12px; border-radius:10px; border:1.5px solid var(--gray-200); background:var(--input-bg); color:var(--text-main); font-family:inherit; outline:none; resize:vertical;" placeholder="Describe the emergency and safety instructions..."></textarea>
-            </div>
-            <button class="btn-primary" onclick="sendBroadcast()" style="background:var(--red); display:flex; align-items:center; justify-content:center; gap:8px;">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-              Send Emergency Broadcast
-            </button>
-          </div>
-        </div>
-
-        <!-- RECENT ALERTS -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Recent Broadcasts</div>
-          </div>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Title</th><th>Level</th><th>Sent At</th></tr></thead>
-              <tbody id="broadcasts-body">
-                <tr><td colspan="3" class="loading"><span class="spinner"></span>Loading...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- VOLUNTEERS -->
+    <!-- VOLUNTEERS PAGE -->
     <div class="page" id="page-volunteers">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Volunteers</div>
-          <div class="page-subtitle">All verified volunteers</div>
-        </div>
-        <div class="sync-status">
-          <span class="sync-dot"></span>
-          <span class="sync-text">Live</span>
-          <button class="sync-btn" onclick="forceSync()" title="Refresh data">
-            <span class="sync-icon">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            </span>
-          </button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Volunteer List</div>
-          <div class="filter-row">
-            <button class="filter-btn btn-export" onclick="exportVolunteers()" type="button">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export CSV
-            </button>
-          </div>
-          <div class="search-container">
-            <input type="text" id="volunteers-search" placeholder="Search volunteers..." oninput="searchVolunteers(this.value)" class="search-input">
-          </div>
-        </div>
-        <div class="table-scroll">
-          <table>
-            <thead><tr><th>Rank</th><th>Name</th><th>Username</th><th>Volunteer ID</th><th>Points</th><th>Joined</th><th>Action</th></tr></thead>
-            <tbody id="volunteers-body">
-              <tr><td colspan="7" class="loading"><span class="spinner"></span>Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="pagination-bar" id="volunteers-pagination" style="display:none"></div>
-      </div>
+       <div style="padding:32px;">
+         <div class="page-header">
+            <div>
+              <h2 class="page-title" style="color: var(--text-primary);">Volunteers</h2>
+              <p class="page-subtitle" style="color: var(--text-secondary);">All verified volunteers</p>
+            </div>
+         </div>
+
+         <div class="card">
+           <table class="enterprise-table">
+             <thead><tr><th>Rank</th><th>Name</th><th>Username</th><th>Volunteer ID</th><th>Points</th><th>Joined</th></tr></thead>
+             <tbody id="volunteers-body"></tbody>
+           </table>
+         </div>
+       </div>
+    </div>
+
+    <!-- BROADCASTS PAGE -->
+    <div class="page" id="page-broadcasts">
+       <div style="padding:32px;">
+         <div class="page-header">
+           <h2 class="page-title" style="color: var(--text-primary);">Emergency Broadcasts</h2>
+         </div>
+
+         <div style="display:grid; grid-template-columns: 400px 1fr; gap:32px;">
+           <div class="card" style="padding:24px;">
+             <div class="form-group">
+               <label>Alert Title</label>
+               <input type="text" id="alert-title" placeholder="Enter title...">
+             </div>
+             <div class="form-group">
+               <label>Severity Level</label>
+               <select id="alert-level" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--bg);">
+                 <option value="Critical">Critical</option>
+                 <option value="Warning">Warning</option>
+                 <option value="Info">Information</option>
+               </select>
+             </div>
+             <div class="form-group">
+               <label>Message</label>
+               <textarea id="alert-message" style="width:100%; height:120px; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--bg);"></textarea>
+             </div>
+             <button class="btn-primary" onclick="sendBroadcast()">Send Emergency Broadcast</button>
+           </div>
+
+           <div class="card">
+             <table class="enterprise-table">
+               <thead><tr><th>Broadcast</th><th>Level</th><th>Time</th><th>Action</th></tr></thead>
+               <tbody id="broadcasts-body"></tbody>
+             </table>
+           </div>
+         </div>
+       </div>
     </div>
 
   </main>
@@ -474,23 +362,23 @@
 <div id="toast"></div>
 
 <!-- ─── REPORT DETAIL MODAL ──────────────────────────────── -->
-<div id="report-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center;padding:24px">
-  <div class="modal-content">
-    <div id="modal-body" style="padding:28px"></div>
+<div id="report-modal" class="ops-modal">
+  <div class="modal-content-eoc">
+    <div id="modal-body" style="padding:0; flex:1; overflow:hidden;"></div>
   </div>
 </div>
 
 <!-- ─── VOLUNTEER DETAIL MODAL ────────────────────────────── -->
-<div id="volunteer-modal" role="dialog" aria-modal="true" aria-labelledby="vol-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:210;align-items:center;justify-content:center;padding:24px">
-  <div class="modal-content" style="max-width: 600px;">
-    <div id="vol-modal-body" style="padding:28px"></div>
+<div id="volunteer-modal" class="ops-modal">
+  <div class="modal-content-eoc" style="max-width: 600px;">
+    <div id="vol-modal-body" style="padding:32px;"></div>
   </div>
 </div>
 
 <!-- ─── APPLICATION DETAIL MODAL ──────────────────────────── -->
-<div id="app-modal" role="dialog" aria-modal="true" aria-labelledby="app-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:205;align-items:center;justify-content:center;padding:24px">
-  <div class="modal-content" style="max-width: 600px;">
-    <div id="app-modal-body" style="padding:28px"></div>
+<div id="app-modal" class="ops-modal">
+  <div class="modal-content-eoc" style="max-width: 700px;">
+    <div id="app-modal-body" style="padding:0;"></div>
   </div>
 </div>
 

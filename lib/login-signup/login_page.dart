@@ -22,7 +22,7 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _isLoading = false;
   bool _obscure = true;
-  bool _isEmailMode = true; // Toggle between email and phone
+  bool _isEmailMode = true; 
   final _authService = AuthService();
 
   @override
@@ -69,7 +69,9 @@ class _LoginPageState extends State<LoginPage> {
         String msg = "An error occurred. Please try again.";
         if (e.code == 'user-not-found') {
           msg = "No user found for that email.";
-        } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') msg = "Wrong password provided.";
+        } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+          msg = "Wrong password provided.";
+        }
         _showError(msg);
       }
     } catch (e) {
@@ -85,13 +87,10 @@ class _LoginPageState extends State<LoginPage> {
       _showError("Please enter your email address to reset your password.");
       return;
     }
-
-    // Basic email validation regex
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+    if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
       _showError("Please enter a valid email address.");
       return;
     }
-
     setState(() => _isLoading = true);
     try {
       await _authService.sendPasswordResetEmail(email);
@@ -116,35 +115,29 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
-      await _authService.signInWithGoogle();
+      await _authService.handleGoogleSignIn();
     } catch (e) {
-      if (mounted) _showError("Google sign in failed: $e");
+      if (mounted) _showError("Google Sign-In failed: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _sendOTP() async {
-    // Strip all spaces and non-digits except the leading plus
     final rawPhone = _phoneController.text;
     final phone = rawPhone.replaceAll(RegExp(r'[^0-9+]'), '');
-    
     if (phone.isEmpty || !phone.startsWith('+') || phone.length < 10) {
       _showError("Enter a valid phone number with country code (e.g. +91...)");
       return;
     }
-
     setState(() => _isLoading = true);
     try {
-      // 1. Check if user is registered
       final exists = await _authService.checkPhoneExists(phone);
       if (!exists) {
         setState(() => _isLoading = false);
         _showError("This phone number is not registered. Please sign up first.");
         return;
       }
-
-      // 2. If exists, send OTP
       await _authService.verifyPhoneNumber(
         phone,
         onCodeSent: (verificationId, resendToken) {
@@ -227,10 +220,9 @@ class _LoginPageState extends State<LoginPage> {
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   children: [
-                    // Mode Toggle
                     Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.grey.shade100, 
+                        color: theme.brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.grey.shade100, 
                         borderRadius: BorderRadius.circular(12)
                       ),
                       padding: const EdgeInsets.all(4),
@@ -309,6 +301,41 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
 
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text("OR", style: textTheme.bodySmall?.copyWith(color: Colors.grey, fontWeight: FontWeight.bold)),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Google Sign-In Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        icon: Image.asset("assets/images/google.png", height: 20),
+                        label: const Text(
+                          "Continue with Google",
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+
                     if (_isEmailMode) ...[
                       const SizedBox(height: 20),
                       Center(
@@ -334,28 +361,6 @@ class _LoginPageState extends State<LoginPage> {
                     const Divider(),
                     const SizedBox(height: 20),
 
-                    // Google Sign In Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          side: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        onPressed: _isLoading ? null : _signInWithGoogle,
-                        icon: Image.asset("assets/images/google.png", height: 24),
-                        label: Text(
-                          l10n.continue_with_google,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
                     // Emergency Report Button
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -370,7 +375,6 @@ class _LoginPageState extends State<LoginPage> {
                       icon: const Icon(Icons.emergency_share),
                       label: const Text("Report Emergency Anonymously", style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
-
                   ],
                 ),
               ),
@@ -398,9 +402,7 @@ class _LoginPageState extends State<LoginPage> {
             label,
             style: TextStyle(
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected 
-                  ? (isDark ? Colors.white : Theme.of(context).primaryColor) 
-                  : Colors.grey,
+              color: isSelected ? (isDark ? Colors.white : Theme.of(context).primaryColor) : Colors.grey,
             ),
           ),
         ),

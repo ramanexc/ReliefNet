@@ -5,8 +5,30 @@ import 'package:google_sign_in/google_sign_in.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   Stream<User?> get userStream => _auth.authStateChanges();
+
+  // --- GOOGLE SIGN IN ---
+  Future<UserCredential?> handleGoogleSignIn() async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null;
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      UserCredential userCredential = await _auth.signInWithCredential(credential);
+      await _syncUserToFirestore(userCredential.user);
+      return userCredential;
+    } catch (e) {
+      print("DEBUG: Google Sign-In Error: $e");
+      rethrow;
+    }
+  }
 
   // --- CHECK IF PHONE EXISTS ---
   Future<bool> checkPhoneExists(String phone) async {
@@ -68,22 +90,6 @@ class AuthService {
 
   Future<void> sendPasswordResetEmail(String email) async {
     await _auth.sendPasswordResetEmail(email: email);
-  }
-
-  // --- GOOGLE AUTH ---
-  Future<UserCredential?> signInWithGoogle() async {
-    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) return null;
-    
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-    final AuthCredential credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-    
-    UserCredential userCredential = await _auth.signInWithCredential(credential);
-    await _syncUserToFirestore(userCredential.user);
-    return userCredential;
   }
 
   // --- SYNC USER TO FIRESTORE ---

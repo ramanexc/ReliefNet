@@ -10,289 +10,136 @@ export async function loadAll() {
 
 let overviewMap = null;
 let markersGroup = null;
+let currentTileLayer = null;
 let chartCategories = null;
-let chartUrgency = null;
-let chartTrends = null;
 
 export function renderOverview() {
-  const total       = allReports.length;
-  const active      = allReports.filter(r => r.status !== 'completed' && r.status !== 'suspected_spam' && r.status !== 'flagged').length;
-  const resolved    = allReports.filter(r => r.status === 'completed').length;
-  const spam        = allReports.filter(r => r.status === 'suspected_spam' || r.status === 'flagged').length;
-  const pendingApps = allApps.filter(a => a.status === 'pending').length;
+  const isDark = document.documentElement.classList.contains('dark-mode');
 
-  document.getElementById('stat-total').textContent       = total;
-  document.getElementById('stat-active').textContent      = active;
-  document.getElementById('stat-resolved').textContent    = resolved;
-  document.getElementById('stat-spam').textContent        = spam;
-  document.getElementById('stat-pending-apps').textContent = pendingApps;
-
-  // Recent 5 reports
-  const recent = allReports.slice(0, 5);
+  // Recent 10 reports for the incident stream
+  const recent = allReports.slice(0, 10);
   const tbody = document.getElementById('overview-reports-body');
   if (recent.length === 0) {
-    tbody.innerHTML = emptyRow(4, 'empty', 'No reports yet');
+    tbody.innerHTML = emptyRow(1, 'empty', 'No reports yet');
   } else {
     tbody.innerHTML = recent.map(r => `
-      <tr style="cursor:pointer" onclick="window.openReport('${r.id}')">
-        <td>${typeIcon(r.issueType)} ${esc(r.issueType || '—')}</td>
-        <td>${urgencyBadge(r.urgency)}</td>
-        <td>${statusBadge(r.status)}</td>
-        <td style="font-size:12px;color:var(--gray-400)">${formatTime(r.timestamp)}</td>
+      <tr onclick="window.openReport('${r.id}')">
+        <td style="padding: 16px 20px;">
+          <div style="display:flex; justify-content:space-between; align-items:start;">
+            <div style="display:flex; gap:12px; align-items:center;">
+              ${typeIcon(r.issueType)}
+              <div>
+                <div style="font-weight:700; font-size:13px; color:var(--text-primary);">${esc(r.issueType)}</div>
+                <div class="mono" style="font-size:10px; color:var(--text-secondary); opacity:0.8;">ID: ${r.id.substring(0,8)}</div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+               <div style="font-size:10px; font-weight:700; color:var(--text-secondary);">${formatTime(r.timestamp).split(',')[1]}</div>
+               ${urgencyBadge(r.urgency)}
+            </div>
+          </div>
+          <div style="margin-top:8px; font-size:12px; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:300px;">
+            ${esc(r.description)}
+          </div>
+        </td>
       </tr>
     `).join('');
   }
 
-  // ─── LEAFLET MAP INITIALIZATION & SYNC ─────────────────────
+  // ─── MAP ─────────────────────
   try {
     if (typeof L !== 'undefined') {
       const mapContainer = document.getElementById('overview-map');
       if (mapContainer) {
         if (!overviewMap) {
-          overviewMap = L.map('overview-map').setView([20.5937, 78.9629], 5);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-          }).addTo(overviewMap);
+          overviewMap = L.map('overview-map', { zoomControl: false }).setView([20.5937, 78.9629], 5);
           markersGroup = L.featureGroup().addTo(overviewMap);
-          
-          // Force Leaflet to recalculate container size on first render
-          setTimeout(() => {
-            if (overviewMap) overviewMap.invalidateSize();
-          }, 200);
-        } else {
-          markersGroup.clearLayers();
-          // Force layout refresh on updates
-          overviewMap.invalidateSize();
+          L.control.zoom({ position: 'bottomright' }).addTo(overviewMap);
         }
 
-        const reportsWithCoords = allReports.filter(r => {
-          const lat = Number(r.lat);
-          const lng = Number(r.lng);
-          return !isNaN(lat) && !isNaN(lng) && r.lat !== undefined && r.lng !== undefined && r.status !== 'completed';
-        });
-        
-        reportsWithCoords.forEach(r => {
-          const lat = Number(r.lat);
-          const lng = Number(r.lng);
-          const markerColor = r.urgency === 'High' ? '#EF4444' : r.urgency === 'Medium' ? '#F97316' : '#22C55E';
-          const marker = L.circleMarker([lat, lng], {
-            radius: 8,
-            fillColor: markerColor,
-            color: '#ffffff',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.8
-          });
+        // Update tile layer based on theme
+        const tileUrl = isDark
+          ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+          : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-          marker.bindPopup(`
-            <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--gray-800);line-height:1.4;">
-              <strong style="font-size:14px;color:var(--gray-900);display:block;margin-bottom:2px;">${typeIcon(r.issueType)} ${esc(r.issueType)}</strong>
-              <span style="font-size:11px;color:var(--gray-400);font-family:'DM Mono',monospace;display:block;margin-bottom:4px;">ID: ${r.id}</span>
-              <p style="margin:4px 0 8px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--gray-600);">${esc(r.description)}</p>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;font-weight:700;color:${markerColor};">${r.urgency}</span>
-                <button onclick="window.openReport('${r.id}')" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;transition:opacity 0.2s;">View →</button>
-              </div>
-            </div>
-          `);
+        if (currentTileLayer) {
+          overviewMap.removeLayer(currentTileLayer);
+        }
+        currentTileLayer = L.tileLayer(tileUrl, {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(overviewMap);
+
+        markersGroup.clearLayers();
+        
+        allReports.filter(r => r.lat && r.lng && r.status !== 'completed').forEach(r => {
+          const color = r.urgency === 'High' ? '#DC2626' : r.urgency === 'Medium' ? '#EA580C' : '#2563EB';
+          const marker = L.circleMarker([r.lat, r.lng], {
+            radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9
+          });
+          marker.bindPopup(`<div class="mono" style="font-size:11px; color: #0F172A;">ID: ${r.id.substring(0,8)}<br><b>${r.issueType}</b></div>`);
           marker.addTo(markersGroup);
         });
 
-        if (reportsWithCoords.length > 0) {
-          try {
-            overviewMap.fitBounds(markersGroup.getBounds(), { padding: [40, 40] });
-          } catch (_) {}
-        }
-      }
-    } else {
-      console.warn("Leaflet library L is not loaded.");
-      const mapContainer = document.getElementById('overview-map');
-      if (mapContainer) {
-        mapContainer.innerHTML = '<div class="empty"><div class="empty-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;color:var(--gray-400);"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg></div><div class="empty-text">Map is offline (Leaflet failed to load)</div></div>';
+        if (markersGroup.getLayers().length > 0) overviewMap.fitBounds(markersGroup.getBounds(), { padding: [50, 50] });
+
+        setTimeout(() => {
+          overviewMap.invalidateSize();
+        }, 100);
       }
     }
-  } catch (err) {
-    console.error("Failed to initialize Overview Map:", err);
-  }
+  } catch (err) { console.error(err); }
 
-  // ─── CHART.JS ANALYTICS DASHBOARD ──────────────────────────
+  // ─── CHARTS ─────────────────────
   try {
     if (typeof Chart !== 'undefined') {
-      const isDarkMode = document.documentElement.classList.contains('dark-mode');
-      const textColor = isDarkMode ? '#D1D5DB' : '#6B7280';
-      const gridColor = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-      const borderCol = isDarkMode ? '#111827' : '#ffffff';
-
-      // 1. Doughnut Chart: Categories
-      const categoriesCount = {};
-      allReports.forEach(r => {
-        const cat = r.issueType || 'Other';
-        categoriesCount[cat] = (categoriesCount[cat] || 0) + 1;
-      });
-      const catLabels = Object.keys(categoriesCount);
-      const catData = Object.values(categoriesCount);
       const ctxCat = document.getElementById('chart-categories');
-
       if (ctxCat) {
         if (chartCategories) chartCategories.destroy();
+
+        const counts = {};
+        allReports.forEach(r => counts[r.issueType] = (counts[r.issueType] || 0) + 1);
+
+        const style = getComputedStyle(document.body);
+        const textColor = style.getPropertyValue('--text-secondary').trim();
+
         chartCategories = new Chart(ctxCat, {
           type: 'doughnut',
           data: {
-            labels: catLabels,
+            labels: Object.keys(counts),
             datasets: [{
-              data: catData,
-              backgroundColor: ['#2563EB', '#22C55E', '#EF4444', '#F97316', '#A855F7', '#6B7280'],
-              borderWidth: 1.5,
-              borderColor: borderCol
+              data: Object.values(counts),
+              backgroundColor: ['#DC2626', '#EA580C', '#2563EB', '#16A34A', '#94A3B8'],
+              borderWidth: 0
             }]
           },
           options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: {
               legend: {
-                position: 'right',
+                position: 'bottom',
                 labels: {
-                  boxWidth: 12,
-                  font: { family: 'DM Sans', size: 11 },
-                  color: textColor
+                  boxWidth: 8,
+                  color: textColor,
+                  font: { size: 10, weight: '600', family: 'Inter' }
                 }
               }
             }
           }
         });
       }
-
-      // 2. Bar Chart: Urgency
-      const urgencyCount = { High: 0, Medium: 0, Low: 0 };
-      allReports.forEach(r => {
-        if (r.urgency in urgencyCount) {
-          urgencyCount[r.urgency]++;
-        }
-      });
-      const ctxUrg = document.getElementById('chart-urgency');
-
-      if (ctxUrg) {
-        if (chartUrgency) chartUrgency.destroy();
-        chartUrgency = new Chart(ctxUrg, {
-          type: 'bar',
-          data: {
-            labels: ['High', 'Medium', 'Low'],
-            datasets: [{
-              label: 'Reports',
-              data: [urgencyCount.High, urgencyCount.Medium, urgencyCount.Low],
-              backgroundColor: ['rgba(239, 68, 68, 0.85)', 'rgba(249, 115, 22, 0.85)', 'rgba(34, 197, 94, 0.85)'],
-              borderRadius: 6
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false }
-            },
-            scales: {
-              x: {
-                grid: { display: false },
-                ticks: { color: textColor }
-              },
-              y: {
-                beginAtZero: true,
-                grid: { color: gridColor },
-                ticks: { stepSize: 1, color: textColor }
-              }
-            }
-          }
-        });
-      }
-
-      // 3. Line Chart: Timeline (Last 7 Days)
-      const days = [];
-      const submissionsByDay = {};
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateString = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-        days.push(dateString);
-        submissionsByDay[dateString] = 0;
-      }
-      allReports.forEach(r => {
-        const ts = r.timestamp;
-        if (ts) {
-          const d = ts.toDate ? ts.toDate() : new Date(ts);
-          const str = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-          if (str in submissionsByDay) {
-            submissionsByDay[str]++;
-          }
-        }
-      });
-      const trendsData = days.map(d => submissionsByDay[d]);
-      const ctxTrd = document.getElementById('chart-trends');
-
-      if (ctxTrd) {
-        if (chartTrends) chartTrends.destroy();
-        chartTrends = new Chart(ctxTrd, {
-          type: 'line',
-          data: {
-            labels: days,
-            datasets: [{
-              label: 'Submissions',
-              data: trendsData,
-              borderColor: '#2563EB',
-              backgroundColor: 'rgba(37, 99, 235, 0.1)',
-              fill: true,
-              tension: 0.3,
-              borderWidth: 2,
-              pointBackgroundColor: '#2563EB'
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false }
-            },
-            scales: {
-              x: {
-                grid: { display: false },
-                ticks: { color: textColor }
-              },
-              y: {
-                beginAtZero: true,
-                grid: { color: gridColor },
-                ticks: { stepSize: 1, color: textColor }
-              }
-            }
-          }
-        });
-      }
-    } else {
-      console.warn("Chart.js is not loaded.");
-      const breakdownEl = document.getElementById('category-breakdown');
-      if (breakdownEl) {
-        breakdownEl.innerHTML = '<div class="empty"><div class="empty-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;color:var(--gray-400);"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></div><div class="empty-text">Charts are offline (Chart.js failed to load)</div></div>';
-      }
     }
-  } catch (err) {
-    console.error("Failed to render Chart.js analytics:", err);
-  }
+  } catch (e) {}
 }
 
-// ─── LEAFLET FIX FOR DISPLAY TILE BUGS ───────────────────────
 export function invalidateOverviewMap() {
   if (overviewMap) {
-    overviewMap.invalidateSize();
     setTimeout(() => {
-      if (overviewMap) {
-        overviewMap.invalidateSize();
-        if (markersGroup && markersGroup.getLayers().length > 0) {
-          try {
-            overviewMap.fitBounds(markersGroup.getBounds(), { padding: [40, 40] });
-          } catch (_) {}
-        }
+      overviewMap.invalidateSize();
+      if (markersGroup && markersGroup.getLayers().length > 0) {
+        try {
+          overviewMap.fitBounds(markersGroup.getBounds());
+        } catch(e) {}
       }
-    }, 150);
+    }, 200);
   }
 }
-
