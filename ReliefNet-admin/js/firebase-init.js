@@ -41,6 +41,8 @@ onAuthStateChanged(auth, async user => {
     document.getElementById('app').style.display = 'flex';
     document.getElementById('admin-email').textContent = user.email;
     document.getElementById('admin-avatar').textContent = user.email[0].toUpperCase();
+    const adminLabel = document.querySelector('.admin-info div:last-child div:last-child');
+    if (adminLabel) adminLabel.textContent = 'Admin Account';
     document.getElementById('overview-date').textContent = new Date().toLocaleDateString('en-IN', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });

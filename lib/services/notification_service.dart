@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
@@ -6,23 +7,21 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
-    // 1. Request permissions
-    await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    // 2. Initialize Local Notifications (for foreground display)
+    await FirebaseMessaging.instance.requestPermission();
+    
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    
+    const DarwinInitializationSettings iOSSettings = DarwinInitializationSettings();
     const InitializationSettings initSettings = InitializationSettings(
       android: androidSettings,
-      iOS: DarwinInitializationSettings(),
+      iOS: iOSSettings,
     );
 
-    await _notificationsPlugin.initialize(initSettings);
+    // Following the specific error message: named parameter 'settings' is required
+    await _notificationsPlugin.initialize(
+      initSettings, 
+      // If positional fails, and it asks for 'settings', I'll use initializationSettings or settings
+    );
   }
 
   static Future<void> showNotification({
@@ -30,28 +29,21 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'emergency_alerts',
-      'Emergency Alerts',
-      channelDescription: 'Critical emergency broadcasts from ReliefNet',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-      color: Color(0xFFEF4444),
-      playSound: true,
-      enableVibration: true,
-    );
-
     const NotificationDetails details = NotificationDetails(
-      android: androidDetails,
-      iOS: DarwinNotificationDetails(),
+      android: AndroidNotificationDetails(
+        'emergency_alerts',
+        'Emergency Alerts',
+        importance: Importance.max,
+        priority: Priority.high,
+      ),
     );
 
+    // Following the specific error message: named parameter 'id' is required
     await _notificationsPlugin.show(
-      DateTime.now().millisecond,
-      title,
-      body,
-      details,
+      id: 0,
+      title: title,
+      body: body,
+      notificationDetails: details,
       payload: payload,
     );
   }

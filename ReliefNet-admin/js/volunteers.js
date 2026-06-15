@@ -9,7 +9,6 @@ let currentPage = 1;
 const itemsPerPage = 10;
 let unsubscribeVolunteers = null;
 
-// ─── LOAD (REAL-TIME LISTENER) ───────────────────────────────
 export async function loadVolunteers() {
   return new Promise((resolve, reject) => {
     if (unsubscribeVolunteers) unsubscribeVolunteers();
@@ -17,8 +16,7 @@ export async function loadVolunteers() {
     unsubscribeVolunteers = onSnapshot(q, snap => {
       allVolunteers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderVolunteers();
-      
-      // Trigger overview update dynamically
+
       import('./overview.js').then(m => m.renderOverview());
       resolve();
     }, err => {
@@ -28,7 +26,6 @@ export async function loadVolunteers() {
   });
 }
 
-// ─── UNSUBSCRIBE LISTENER ────────────────────────────────────
 export function unsubVolunteers() {
   if (unsubscribeVolunteers) {
     unsubscribeVolunteers();
@@ -36,29 +33,27 @@ export function unsubVolunteers() {
   }
 }
 
-// ─── RENDER TABLE ────────────────────────────────────────────
 export function renderVolunteers() {
   let filtered = allVolunteers;
 
   if (searchQuery) {
-    filtered = filtered.filter(v => 
+    filtered = filtered.filter(v =>
       (v.name || '').toLowerCase().includes(searchQuery) ||
-      (v.username || '').toLowerCase().includes(searchQuery) ||
       (v.volunteerId || '').toLowerCase().includes(searchQuery)
     );
   }
 
-  // Sort by points descending (Leaderboard)
   filtered.sort((a, b) => (b.points || 0) - (a.points || 0));
 
-  const totalItems = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   if (currentPage > totalPages) currentPage = totalPages;
 
   const start = (currentPage - 1) * itemsPerPage;
   const paginated = filtered.slice(start, start + itemsPerPage);
 
   const tbody = document.getElementById('volunteers-body');
+  if (!tbody) return;
+
   if (paginated.length === 0) {
     tbody.innerHTML = emptyRow(6, 'users', 'No verified volunteers yet');
     renderPagination('volunteers-pagination', currentPage, totalPages, 'volunteersPrevPage()', 'volunteersNextPage()');
@@ -67,20 +62,17 @@ export function renderVolunteers() {
 
   tbody.innerHTML = paginated.map((v, idx) => {
     const rank = start + idx + 1;
-    let rankBadge = '';
-    if (rank === 1) rankBadge = '🥇';
-    else if (rank === 2) rankBadge = '🥈';
-    else if (rank === 3) rankBadge = '🥉';
+    let badge = rank;
+    if (rank === 1) badge = '🥇'; else if (rank === 2) badge = '🥈'; else if (rank === 3) badge = '🥉';
 
     return `
     <tr onclick="openVolunteerProfile('${v.id}')">
-      <td style="width: 50px; text-align: center; font-weight: bold;">${rankBadge || rank}</td>
-      <td><strong>${esc(v.name)}</strong></td>
-      <td style="color:var(--gray-500)">@${esc(v.username)}</td>
-      <td class="mono">${esc(v.volunteerId)}</td>
-      <td style="font-weight: 700; color: var(--blue);">${v.points || 0}</td>
-      <td style="font-size:12px;color:var(--gray-400)">${formatTime(v.updatedAt)}</td>
-      <td><span style="font-size:12px;color:var(--blue);font-weight:600">Profile →</span></td>
+      <td style="width: 60px; text-align: center; font-weight: 800; color:var(--info);">${badge}</td>
+      <td><strong style="color: var(--text-primary);">${esc(v.name)}</strong></td>
+      <td style="color:var(--text-secondary)">@${esc(v.username)}</td>
+      <td class="mono" style="font-size:11px; color: var(--text-primary);">${esc(v.volunteerId)}</td>
+      <td style="font-weight: 700; color: var(--success);">${v.points || 0}</td>
+      <td style="font-size:11px; color:var(--text-secondary)">${formatTime(v.updatedAt)}</td>
     </tr>
   `;
   }).join('');
@@ -88,7 +80,6 @@ export function renderVolunteers() {
   renderPagination('volunteers-pagination', currentPage, totalPages, 'volunteersPrevPage()', 'volunteersNextPage()');
 }
 
-// ─── SEARCH / PAGINATION ACTIONS ─────────────────────────────
 window.searchVolunteers = (val) => {
   searchQuery = val.trim().toLowerCase();
   currentPage = 1;
@@ -103,143 +94,69 @@ window.volunteersPrevPage = () => {
 };
 
 window.volunteersNextPage = () => {
-  let filtered = allVolunteers;
-  if (searchQuery) {
-    filtered = filtered.filter(v => 
-      (v.name || '').toLowerCase().includes(searchQuery) ||
-      (v.username || '').toLowerCase().includes(searchQuery) ||
-      (v.volunteerId || '').toLowerCase().includes(searchQuery)
-    );
-  }
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const totalPages = Math.ceil(allVolunteers.length / itemsPerPage);
   if (currentPage < totalPages) {
     currentPage++;
     renderVolunteers();
   }
 };
 
-// ─── CSV DATA EXPORT ──────────────────────────────────────────
 window.exportVolunteers = () => {
-  const headers = ['User ID', 'Name', 'Username', 'Volunteer ID', 'Joined At'];
-  const rows = allVolunteers.map(v => [
-    v.id,
-    v.name || '',
-    v.username || '',
-    v.volunteerId || '',
-    v.updatedAt?.toDate ? v.updatedAt.toDate().toISOString() : v.updatedAt || ''
-  ]);
-  exportToCSV(`reliefnet_volunteers_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+  const headers = ['ID', 'Name', 'Handle', 'Points', 'Joined'];
+  const rows = allVolunteers.map(v => [v.volunteerId, v.name, v.username, v.points || 0, formatTime(v.updatedAt)]);
+  exportToCSV(`reliefnet_volunteers_export_${new Date().toISOString().slice(0,10)}.csv`, headers, rows);
 };
 
-// ─── VOLUNTEER DETAIL PROFILE MODAL ──────────────────────────
 window.openVolunteerProfile = (uid) => {
   const v = allVolunteers.find(x => x.id === uid);
   if (!v) return;
-
-  // Find reports assigned to this volunteer
-  const assignedReports = allReports.filter(r => (r.assignedVolunteers || []).includes(uid));
-  const activeReports = assignedReports.filter(r => r.status !== 'completed');
-  const resolvedReports = assignedReports.filter(r => r.status === 'completed');
+  const assigned = allReports.filter(r => (r.assignedVolunteers || []).includes(uid));
 
   document.getElementById('vol-modal-body').innerHTML = `
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
-      <div>
-        <h2 id="vol-modal-title" style="font-size:20px;font-weight:700;color:var(--gray-900)">Volunteer Profile</h2>
-        <div style="font-size:13px;color:var(--gray-500);margin-top:2px">ID: ${esc(v.volunteerId)}</div>
-      </div>
-      <button onclick="closeVolunteerModal()" style="background:var(--gray-100);border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:18px;color:var(--gray-500)">✕</button>
-    </div>
-
-    <!-- PROFILE INFO -->
-    <div class="modal-section" style="margin-bottom:16px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div style="background: var(--surface); color: var(--text-primary); padding: 40px; border-radius: var(--radius-lg);">
+      <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:32px;">
         <div>
-          <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Full Name</div>
-          <div style="font-size:15px;font-weight:600;">${esc(v.name)}</div>
+          <h2 style="font-size:24px; font-weight:800;">Volunteer Profile</h2>
+          <div class="mono" style="color:var(--text-secondary);">ID: ${v.volunteerId}</div>
         </div>
-        <div>
-          <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Username</div>
-          <div style="font-size:15px;font-weight:600;color:var(--gray-500)">@${esc(v.username)}</div>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Joined Date</div>
-          <div style="font-size:14px;">${formatTime(v.updatedAt)}</div>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Status</div>
-          <div><span class="badge badge-approved">Active</span></div>
-        </div>
+        <button onclick="closeVolunteerModal()" style="border:none; background:none; cursor:pointer; color:var(--text-secondary); font-weight: 600;">✕ Close</button>
       </div>
-    </div>
 
-    <!-- METRICS -->
-    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:12px;margin-bottom:16px;">
-      <div class="modal-section" style="text-align:center;">
-        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;">Total Points</div>
-        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:var(--blue);margin-top:4px;">${v.points || 0}</div>
+      <div class="card" style="padding:24px; margin-bottom:32px; display:grid; grid-template-columns: 1fr 1fr; gap:24px; background: var(--surface); border: 1px solid var(--border);">
+         <div>
+           <label style="font-size:10px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; display:block; margin-bottom:4px;">Full Name</label>
+           <div style="font-size:18px; font-weight:700;">${esc(v.name)}</div>
+         </div>
+         <div>
+           <label style="font-size:10px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; display:block; margin-bottom:4px;">Total Points</label>
+           <div style="font-size:18px; font-weight:800; color:var(--success);">${v.points || 0}</div>
+         </div>
       </div>
-      <div class="modal-section" style="text-align:center;">
-        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;">Assigned</div>
-        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:var(--gray-700);margin-top:4px;">${assignedReports.length}</div>
-      </div>
-      <div class="modal-section" style="text-align:center;">
-        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;">Active</div>
-        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:var(--orange);margin-top:4px;">${activeReports.length}</div>
-      </div>
-      <div class="modal-section" style="text-align:center;">
-        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;">Resolved</div>
-        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:var(--green);margin-top:4px;">${resolvedReports.length}</div>
-      </div>
-    </div>
 
-    <!-- ACTIVE ASSIGNMENTS -->
-    <div class="modal-section" style="margin-bottom:16px; max-height:200px; overflow-y:auto;">
-      <div class="modal-section-title" style="color:var(--orange);display:inline-flex;align-items:center;gap:6px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--orange);width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Active Tasks</div>
-      ${activeReports.length === 0
-        ? `<div style="color:var(--gray-400);font-size:13px;padding:8px 0">No active assignments</div>`
-        : activeReports.map(r => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);">
-              <div style="font-size:13px;">
-                <strong>${esc(r.issueType)}</strong>
-                <span style="font-size:11px;color:var(--gray-400);margin-left:8px;">${formatTime(r.timestamp)}</span>
-              </div>
-              <button onclick="window.closeVolunteerModal(); window.openReport('${r.id}')" class="volunteer-link" style="font-size:12px;">View Report →</button>
-            </div>
-          `).join('')}
-    </div>
-
-    <!-- COMPLETED ASSIGNMENTS -->
-    <div class="modal-section" style="max-height:200px; overflow-y:auto;">
-      <div class="modal-section-title" style="color:var(--green);display:inline-flex;align-items:center;gap:6px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green);width:14px;height:14px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Resolved Tasks</div>
-      ${resolvedReports.length === 0
-        ? `<div style="color:var(--gray-400);font-size:13px;padding:8px 0">No resolved tasks yet</div>`
-        : resolvedReports.map(r => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);">
-              <div style="font-size:13px;">
-                <strong>${esc(r.issueType)}</strong>
-                <span style="font-size:11px;color:var(--gray-400);margin-left:8px;">${formatTime(r.resolvedAt)}</span>
-              </div>
-              <button onclick="window.closeVolunteerModal(); window.openReport('${r.id}')" class="volunteer-link" style="font-size:12px;">View Report →</button>
-            </div>
-          `).join('')}
+      <h3 style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:16px; color: var(--text-primary);">Assigned tasks (${assigned.length})</h3>
+      <div class="card" style="max-height:300px; overflow-y:auto; border: 1px solid var(--border); background: var(--surface);">
+         <table class="enterprise-table">
+            <thead>
+               <tr>
+                 <th>Type</th>
+                 <th>Status</th>
+                 <th>Time</th>
+               </tr>
+            </thead>
+            <tbody>
+              ${assigned.length === 0 ? '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">No mission history</td></tr>' : assigned.map(r => `
+                <tr>
+                  <td><strong style="color: var(--text-primary);">${esc(r.issueType)}</strong></td>
+                  <td>${statusBadge(r.status)}</td>
+                  <td style="font-size:11px; color: var(--text-secondary);">${formatTime(r.timestamp)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+         </table>
+      </div>
     </div>
   `;
-
   document.getElementById('volunteer-modal').style.display = 'flex';
 };
 
-window.closeVolunteerModal = () => {
-  document.getElementById('volunteer-modal').style.display = 'none';
-};
-
-// Close backdrop listener for volunteer-modal
-document.addEventListener('click', e => {
-  if (e.target.id === 'volunteer-modal') window.closeVolunteerModal();
-});
-
-// Escape key listener for volunteer-modal
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    window.closeVolunteerModal();
-  }
-});
+window.closeVolunteerModal = () => document.getElementById('volunteer-modal').style.display = 'none';
