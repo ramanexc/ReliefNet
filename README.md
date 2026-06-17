@@ -13,7 +13,7 @@
 
 **NGO field reporting & volunteer dispatch — powered by Gemini AI**
 
-<a href="https://developers.google.com/community/gdsc-solution-challenge" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Google_Solution_Challenge-2026-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google Solution Challenge"></a>
+<a href="https://promptwars.in/solutionchallenge2026.html" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Google_Solution_Challenge-2026-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google Solution Challenge"></a>
 <a href="https://flutter.dev" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter"></a>
 <a href="https://firebase.google.com" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Firebase-Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase"></a>
 <a href="https://ai.google.dev" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Gemini-AI-8E75B2?style=for-the-badge&logo=google&logoColor=white" alt="Gemini AI"></a>
@@ -86,7 +86,7 @@ Get the latest version of **ReliefNet APK**:
 
 Watch ReliefNet in action:
 
-<a href="https://youtu.be/aYeGnr154mM" target="_blank" rel="noopener"><img src="https://img.youtube.com/vi/aYeGnr154mM/maxresdefault.jpg" alt="Demo Video"></a>
+<a href="https://www.youtube.com/watch?v=G4vIh2EdpCw" target="_blank" rel="noopener"><img src="https://img.youtube.com/vi/G4vIh2EdpCw/maxresdefault.jpg" alt="Demo Video"></a>
 
 ---
 
@@ -368,7 +368,7 @@ Firebase will prompt you with a direct link to create it on first run.
 </table>
 
 **Institution:** GTBIT, New Delhi  
-**Submission:** <a href="https://developers.google.com/community/gdsc-solution-challenge" target="_blank" rel="noopener">Google Solution Challenge 2026</a>
+**Submission:** <a href="https://promptwars.in/solutionchallenge2026.html" target="_blank" rel="noopener">Google Solution Challenge 2026</a>
 
 ---
 
@@ -384,6 +384,6 @@ Submitted as part of the Google Solution Challenge 2026. Built for educational a
 <br/><br/>
 
 <a href="https://gtbit.edu.in" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/GTBIT-New_Delhi-blue?style=flat-square" alt="GTBIT"></a>
-<a href="https://developers.google.com/community/gdsc-solution-challenge" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Google-Solution_Challenge_2026-4285F4?style=flat-square&logo=google" alt="Solution Challenge"></a>
+<a href="https://promptwars.in/solutionchallenge2026.html" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Google-Solution_Challenge_2026-4285F4?style=flat-square&logo=google" alt="Solution Challenge"></a>
 
 </div>
